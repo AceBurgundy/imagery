@@ -1,0 +1,70 @@
+dialog {
+	border: none;
+	outline: none;
+	top: 50%;
+	left: 50%;
+	z-index: 1;
+	width: 100%;
+	height: 100%;
+	background-color: #ffffff00;
+}
+
+dialog[data-type="image"] {
+  display: grid;
+  place-items: center;
+	width: 70%;
+}
+
+dialog > img {
+  width: 100%;
+}
+
+dialog > video {
+  width: 100%;
+	height: 100%;
+}
+
+dialog::backdrop {
+	position: fixed;
+	background: #222222ec;
+	z-index: 1;
+	backdrop-filter: blur(10px);
+	width: 100vw;
+	height: 100vh;
+}
+
+/* animations */
+
+/* opening a dialog */
+dialog[open],
+#backdrop {
+	animation: fade-in 250ms forwards;
+}
+
+/* closing a dialog */
+dialog[open].close-animate {
+	animation: fade-out 250ms forwards;
+}
+
+@keyframes fade-in {
+	0% {
+		transform: translate(-50%, -10%);
+		opacity: 0;
+	}
+	100% {
+		transform: translate(-50%, -50%);
+		opacity: 1;
+	}
+}
+
+@keyframes fade-out {
+	0% {
+		transform: translate(-50%, -50%);
+		opacity: 1;
+	}
+	100% {
+		transform: translate(-50%, -10%);
+		opacity: 0;
+		display: none;
+	}
+}
