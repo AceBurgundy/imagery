@@ -19,3 +19,8 @@ svg {
     pointer-events: none;
     width: 1.5rem;
 }
+
+img:not([src]),
+img[src=""] {
+  background-image: url('../images/load.webp');
+}

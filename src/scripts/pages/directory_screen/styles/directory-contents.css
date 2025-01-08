@@ -3,7 +3,11 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 2rem;
   box-sizing: border-box;
-  margin: 2rem;
+  padding: 2rem;
+  height: 100vh;
+  overflow: scroll;
+  scroll-behavior: smooth;
+  grid-template-rows: repeat(3, 1fr);
 }
 
 @media (min-width: 540px) {

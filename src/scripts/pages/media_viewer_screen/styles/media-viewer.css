@@ -10,13 +10,11 @@ dialog {
 }
 
 dialog[data-type="image"] {
-  display: grid;
   place-items: center;
-	width: 70%;
 }
 
 dialog > img {
-  width: 100%;
+  height: 100%;
 }
 
 dialog > video {
@@ -26,9 +24,9 @@ dialog > video {
 
 dialog::backdrop {
 	position: fixed;
-	background: #222222ec;
+	background: #222222;
 	z-index: 1;
-	backdrop-filter: blur(10px);
+	/* backdrop-filter: blur(10px); */
 	width: 100vw;
 	height: 100vh;
 }
