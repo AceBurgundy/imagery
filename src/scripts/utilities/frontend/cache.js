@@ -1,5 +1,3 @@
-import { print } from './handles.js';
-
 class Cache {
   #cache = new Map();
 
