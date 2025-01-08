@@ -1,10 +1,25 @@
 import { Component, css } from '../../../../component.js';
-import { getFolderMedia, pathJoin } from '../../utilities/frontend/handles.js';
+import eventManager from '../../utilities/frontend/event-manager.js';
+import { pathJoin } from '../../utilities/frontend/handles.js';
 
 /**
  * Represents a media viewer component that can display images and videos.
  */
 export class MediaViewer extends Component {
+
+  /**
+   *
+   * @param {HTMLDivElement} card
+   */
+  static open(card) {
+    if (card.classList.contains('is-media') === false) throw new Error()
+
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      new MediaViewer(box.dataset.path, card.dataset.title)
+    );
+  }
+
   /**
    * Creates an instance of MediaViewer.
    * @param {string} folderPath - The path to the folder containing media files.
@@ -13,15 +28,10 @@ export class MediaViewer extends Component {
   constructor(folderPath, initialMediaName) {
     super();
 
-    // Import styles for the media viewer
     css(import.meta, ["./styles/media-viewer.css"]);
 
     const id = Math.random().toString(36).substring(2, 10);
 
-    /**
-     * Scripts to manage the media viewer's functionality.
-     * @returns {Promise<void>}
-     */
     this.scripts = async () => {
       const dialog = document.getElementById(id);
       const videoElement = dialog.querySelector('video');
@@ -29,17 +39,8 @@ export class MediaViewer extends Component {
       let currentIndex = 0;
       let keydownEnabled = true;
 
-      /**
-       * Array of media file names in the specified folder.
-       * @type {string[]}
-       */
-      const fileNames = await getFolderMedia(folderPath);
+      const fileNames = await window.ipcRenderer.invoke('directory-media', folderPath);
 
-      /**
-       * Updates the displayed media element based on the file name.
-       * @param {string} mediaName - The name of the media file to display.
-       * @returns {Promise<void>}
-       */
       async function updateMediaElement(mediaName) {
         const extension = mediaName.split('.').pop().toLowerCase();
         const videoExtensions = ['mp4', 'mkv', 'avi', 'mov', 'flv', 'wmv', 'webm'];
@@ -50,15 +51,16 @@ export class MediaViewer extends Component {
           videoElement.src = await pathJoin(folderPath, mediaName);
           videoElement.style.display = 'block';
           imageElement.style.display = 'none';
+          window.ipcRenderer.invoke('off-fullscreen');
         } else {
           dialog.dataset.type = "image";
           imageElement.src = await pathJoin(folderPath, mediaName);
           imageElement.style.display = 'block';
           videoElement.style.display = 'none';
+          window.ipcRenderer.invoke('on-fullscreen');
         }
       }
 
-      // Manage keydown handling while video is playing or paused
       videoElement.addEventListener('play', () => {
         keydownEnabled = false;
       });
@@ -71,14 +73,9 @@ export class MediaViewer extends Component {
         keydownEnabled = true;
       });
 
-      // Set the initial media and index
       await updateMediaElement(initialMediaName);
       currentIndex = fileNames.findIndex(fileName => fileName === initialMediaName);
 
-      /**
-       * Handles keyboard events for media navigation and closing the viewer.
-       * @param {KeyboardEvent} event - The keyboard event.
-       */
       const handleKeyDown = (event) => {
         if (!keydownEnabled) return;
 
@@ -89,6 +86,7 @@ export class MediaViewer extends Component {
 
             setTimeout(() => {
               dialog.remove();
+              window.ipcRenderer.invoke('off-fullscreen');
             }, 100);
             break;
 
@@ -108,14 +106,10 @@ export class MediaViewer extends Component {
         }
       };
 
-      dialog.addEventListener('keydown', handleKeyDown);
+      eventManager.registerEvent(dialog, 'keydown', handleKeyDown);
       dialog.showModal();
     };
 
-    /**
-     * Template for the MediaViewer dialog.
-     * @type {string}
-     */
     this.template = /*html*/`
       <dialog id="${id}">
         <video controls style="display: none;"></video>
