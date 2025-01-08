@@ -18,10 +18,12 @@ export class ClickManager {
    * @param {Navigator} navigator - An instance of Navigator.
    */
   control(event, navigator, manager) {
+    const card = event.target.closest('.directory-cell');
+    if (!card) return;
+
     try {
-      // attempt to open as media
-      const card = event.target.closest('.directory-cell');
-      if (card) MediaViewer.open(card);
+    // attempt to open as media
+      MediaViewer.open(card);
     } catch (error) {
       // open as folder
       navigator.reset();
