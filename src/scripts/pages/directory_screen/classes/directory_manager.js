@@ -1,3 +1,4 @@
+import { print } from '../../../utilities/frontend/handles.js';
 import history from '../../../utilities/frontend/history.js';
 
 /**
@@ -8,7 +9,7 @@ export class DirectoryManager {
    * @typedef {Object} DirectoryEntry
    * @property {string} title - The title of the directory entry.
    * @property {string} path - The path of the directory entry.
-   * @property {string} destination - The destination path of the entry.
+   * @property {string} destination - The path where this entry belongs (ex: parent folder path).
    * @property {string} thumbnailPath - The path of the thumbnail image.
    * @property {string} thumbnailType - The type of the thumbnail (e.g., "image", "video").
    * @property {number} index - The index of the entry.
@@ -111,22 +112,24 @@ export class DirectoryManager {
       return;
     }
 
-    entries.forEach((content) => this.processEntry(content));
+    entries.forEach(async content => {
+      await this.processEntry(content);
+    });
   }
 
   /**
    * @private
-   * Check if a card is allowed to be added.
+   * Check if a card is should not be added.
    *
    * @param {string} cardTitle - The title of the card.
    * @param {string} cardDestination - The destination of the card.
-   * @returns {boolean} Whether the card is allowed.
+   * @returns {boolean} true if the card should not be added else false.
    */
-  allowed(cardTitle, cardDestination) {
-    const exist = document.querySelector(`[data-title="${cardTitle}"]`) !== null;
+  notAllowed(cardTitle, cardDestination) {
+    const exist = document.querySelector(`[data-title="${cardTitle}"]`);
     const notForThisFolder = cardDestination !== this.box.dataset.path;
 
-    return !exist && !notForThisFolder;
+    return exist || notForThisFolder;
   }
 
   /**
@@ -136,7 +139,9 @@ export class DirectoryManager {
    * @param {DirectoryEntry} content - The directory entry to process.
    */
   async processEntry(content) {
-    if (!this.allowed(content.title, content.destination)) {
+    const { title, destination, isMedia, index, thumbnailPath, thumbnailType, path } = content;
+
+    if (this.notAllowed(title, destination) === true) {
       return;
     }
 
@@ -146,38 +151,54 @@ export class DirectoryManager {
       height = `style="height: ${Math.round(this.cardHeight)}px"`;
     }
 
-    const isActive = content.index === '0' ? 'active' : '';
-    const cellType = content.isMedia ? 'is-media' : 'is-folder';
-
-    let thumbnail = content.thumbnailPath.trim() === ''
-      ? await this.placeholderImage()
-      : content.thumbnailType === 'video'
-        ? await window.ipcRenderer.invoke('get-thumbnail', content.thumbnailPath) ?? await this.placeholderImage()
-        : content.thumbnailPath;
-
-    const image = new Image();
-    image.onerror = async () => {
-      thumbnail = await this.placeholderImage();
-    };
-
-    image.src = thumbnail;
+    const isActive = index === '0' ? 'active' : '';
+    const cellType = isMedia ? 'is-media' : 'is-folder';
 
     const card = /* html */ `
       <div
         ${height}
         class="directory-cell ${cellType} ${isActive}"
-        data-title="${content.title}"
-        data-path="${content.path}"
-        data-index="${content.index}">
-          <img id="directory-content-${content.index}-image" class="directory-cell__image" src="${thumbnail}">
-          <p>${content.title}</p>
+        data-title="${title}"
+        data-path="${path}"
+        data-index="${index}">
+        <img id="directory-content-${index}-image" class="directory-cell__image" src="${await this.placeholderImage()}">
+        <p>${title}</p>
       </div>
     `;
 
-    const nextIndex = content.index + 1;
+    if (this.notAllowed(title, destination) === true) {
+      return;
+    }
+
+    const nextIndex = parseInt(index) + 1;
     const sibling = this.box.querySelector(`[data-index="${nextIndex}"]`);
 
     (sibling || this.box).insertAdjacentHTML(sibling ? 'beforebegin' : 'beforeend', card);
+    this.loadThumbnail(thumbnailPath, thumbnailType, index);
+  }
+
+  /**
+   * Checks if the thumbnail works properly. If not, it will use the placeholderImage;
+   * @param {string} thumbnail - The thumbnail path to be checked
+   * @param {number} cardIndex - The index of the image element to review
+   */
+  async loadThumbnail(thumbnailPath, thumbnailType, cardIndex) {
+    const cardImage = document.getElementById(`directory-content-${cardIndex}-image`);
+
+    if (!cardImage) {
+      return;
+    }
+
+    const defaultImage = await this.placeholderImage();
+
+    let thumbnail = thumbnailPath.trim() === ''
+      ? defaultImage
+      : thumbnailType === 'video'
+        ? await window.ipcRenderer.invoke('get-thumbnail', thumbnailPath) ?? defaultImage
+        : thumbnailPath;
+
+    cardImage.src = thumbnail;
+    cardImage.onerror = () => cardImage.src = defaultImage;
   }
 
   /**
