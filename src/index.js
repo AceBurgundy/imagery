@@ -1,8 +1,9 @@
 /* eslint-disable linebreak-style */
-const { app, BrowserWindow } = require('electron');
-const { join, resolve, dirname } = require('path');
+const { app, BrowserWindow, ipcMain } = require('electron');
+const { join, resolve } = require('path');
 const { existsSync } = require('fs');
 const squirrelStartup = require('electron-squirrel-startup');
+const { logError } = require('./scripts/utilities/views/helpers.js');
 
 let icon;
 
@@ -22,31 +23,32 @@ switch (process.platform) {
 }
 
 const createWindow = () => {
-  const mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     webPreferences: {
       nodeIntegration: true,
-      preload: join(__dirname, 'preload.js'), // Update to .js if using CommonJS for preload too
+      preload: join(__dirname, 'preload.js'),
       devTools: true,
     },
-    minHeight: 480,
+    minHeight: 540,
     minWidth: 720,
     height: 720,
     width: 1080,
+    enableBlinkFeatures: 'Autofill',
     autoHideMenuBar: true,
     icon,
     show: false,
   });
 
-  mainWindow.loadFile(join(__dirname, 'index.html'));
-  mainWindow.webContents.openDevTools();
+  window.loadFile(join(__dirname, 'index.html'));
+  window.webContents.openDevTools();
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.maximize();
-    mainWindow.show();
+  window.once('ready-to-show', () => {
+    window.maximize();
+    window.show();
   });
 
   // Prevent page refresh with Control + R and opening of console
-  mainWindow.webContents.on('before-input-event', (event, input) => {
+  window.webContents.on('before-input-event', (event, input) => {
     const preventReload = input.control && input.key.toLowerCase() === 'r';
     const preventInspect = input.control && input.shift && input.key.toLowerCase() === 'i';
 
@@ -54,13 +56,34 @@ const createWindow = () => {
       event.preventDefault();
     }
   });
+
+  window.on('resize', () =>
+    window.webContents.send('window-resize', [window.getBounds().width, window.getBounds().height])
+  );
+
+  ipcMain.handle('window-bounds', () =>
+    [window.getBounds().width, window.getBounds().height]
+  )
 };
 
 app.on('ready', () => {
+  app.commandLine.appendSwitch('disable-logging');
+
   // Dynamically require scripts if necessary
-  const viewScriptPath = join(__dirname, './scripts/view.js');
-  if (existsSync(viewScriptPath)) {
-    require(viewScriptPath);
+  const directory = join(__dirname, './scripts/utilities/views/directory.js');
+  const cache = join(__dirname, './scripts/utilities/views/cache-views.js');
+  const helpers = join(__dirname, './scripts/utilities/views/helpers.js');
+
+  if (existsSync(directory) === true) {
+    require(directory);
+  }
+
+  if (existsSync(cache) === true) {
+    require(cache);
+  }
+
+  if (existsSync(helpers) === true) {
+    require(helpers);
   }
 
   createWindow();
@@ -72,4 +95,16 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
+
+// Handle uncaught exceptions in the main process
+process.on('uncaughtException', error => {
+  logError(`Uncaught Exception: ${error}`);
+  app.quit();
+});
+
+// Handle unhandled promise rejections in the main process
+process.on('unhandledRejection', (reason, promise) => {
+  logError(`Unhandled Promise Rejection: ${reason}`);
+  app.quit();
 });
