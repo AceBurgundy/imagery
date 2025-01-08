@@ -1,5 +1,4 @@
 import { Component, css } from '../../../../component.js';
-import eventManager from '../../utilities/frontend/event-manager.js';
 import { pathJoin } from '../../utilities/frontend/handles.js';
 
 /**
@@ -43,7 +42,7 @@ export class MediaViewer extends Component {
 
       async function updateMediaElement(mediaName) {
         const extension = mediaName.split('.').pop().toLowerCase();
-        const videoExtensions = ['mp4', 'mkv', 'avi', 'mov', 'flv', 'wmv', 'webm'];
+        const videoExtensions = ['mp4', 'mkv', 'avi', 'mov', 'flv', 'wmv', 'webm', 'ts'];
         const isVideo = videoExtensions.includes(extension);
 
         if (isVideo) {
@@ -76,7 +75,7 @@ export class MediaViewer extends Component {
       await updateMediaElement(initialMediaName);
       currentIndex = fileNames.findIndex(fileName => fileName === initialMediaName);
 
-      const handleKeyDown = (event) => {
+      dialog.onkeydown = event => {
         if (!keydownEnabled) return;
 
         switch (event.key) {
@@ -95,6 +94,7 @@ export class MediaViewer extends Component {
               currentIndex--;
               updateMediaElement(fileNames[currentIndex]);
             }
+
             break;
 
           case 'ArrowRight':
@@ -102,11 +102,11 @@ export class MediaViewer extends Component {
               currentIndex++;
               updateMediaElement(fileNames[currentIndex]);
             }
+
             break;
         }
       };
 
-      eventManager.registerEvent(dialog, 'keydown', handleKeyDown);
       dialog.showModal();
     };
 
