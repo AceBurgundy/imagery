@@ -117,6 +117,8 @@ export class DirectoryManager {
     // When this happens, changing to a new folder will causes the 70 cards
     // of the previous folder, to load on the current folder.
     // Only 1 card is being added and processed at a time.
+    //
+    // Speed will less likely be an issue as the backend have caching mechanisms in place
     while (true) {
 
       /** @type {ImageryEntry} */
