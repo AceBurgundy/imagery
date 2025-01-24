@@ -15,13 +15,13 @@ export class KeyboardManager {
    * @param {Navigator} navigator - Handles switching of active card or directory.
    */
   control = (event, box, navigator) => {
-    if (event.altKey) {
-      navigator.navigateDirectory(event);
+    if (box.children.length === 0 || document.body.lastElementChild.tagName === 'DIALOG') {
+      event.preventDefault();
       return;
     }
 
-    if (box.children.length === 0 || document.body.lastElementChild.tagName === 'DIALOG') {
-      event.preventDefault();
+    if (event.altKey) {
+      navigator.navigateDirectory(event);
       return;
     }
 

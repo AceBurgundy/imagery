@@ -14,13 +14,13 @@ export class MouseWheelManager {
    * @param {DirectoryManager} manager - The directory manager for handling directory operations.
    */
   control(event, manager) {
-    const scrollingUp = event.deltaY < 0;
-    const scrollingDown = !scrollingUp;
-
     if (document.body.lastElementChild.tagName === 'DIALOG') {
       event.preventDefault();
       return;
     }
+
+    const scrollingUp = event.deltaY < 0;
+    const scrollingDown = !scrollingUp;
 
     if (scrollingDown) manager.addContent();
   }

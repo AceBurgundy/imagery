@@ -1,4 +1,4 @@
-import { print } from '../../../utilities/frontend/handles.js';
+import { pathBasename, print } from '../../../utilities/frontend/handles.js';
 import history from '../../../utilities/frontend/history.js';
 
 /**
@@ -63,13 +63,22 @@ export class DirectoryManager {
    * @param {HTMLDivElement} box - The main directory container.
    */
   updateBox(box) {
+    const title = document.getElementById('directory-name');
+
     this.box = box;
     this.boxStyle = window.getComputedStyle(box);
+    this.bodyStyle = window.getComputedStyle(document.body);
 
-    const boxHeight = parseFloat(this.box.clientHeight) -
-                      parseFloat(this.boxStyle.padding) -
-                      parseFloat(this.boxStyle.rowGap);
-    this.cardHeight = boxHeight / 3;
+    const heightTaken = parseFloat(this.bodyStyle.paddingTop) +
+                        parseFloat(title.clientHeight) +
+                        parseFloat(this.bodyStyle.gap) +
+                        parseFloat(this.bodyStyle.paddingBottom)
+
+    const boxHeight = window.innerHeight - heightTaken;
+    this.box.style.height = `${parseInt(boxHeight)}px`;
+
+    const boxHeightWithGap = boxHeight - (parseInt(this.boxStyle.rowGap) * 2);
+    this.cardHeight = Math.round(boxHeightWithGap / 3);
   }
 
   /**
@@ -83,6 +92,14 @@ export class DirectoryManager {
 
     this.box.innerHTML = '';
     this.box.dataset.path = path;
+
+    pathBasename(path)
+      .then(basename => {
+        const title = document.getElementById("directory-name");
+        const root = basename === '' && path.slice(-1) === '\\';
+
+        title.textContent = root ? path.replace('\\', '') : basename
+      })
 
     this.numberOfCardsToAddOnScroll = this.boxStyle.gridTemplateColumns.split(' ').length;
     this.fixedVisibleCardCount = this.numberOfCardsToAddOnScroll * 3;
@@ -148,7 +165,7 @@ export class DirectoryManager {
     let height = '';
 
     if (typeof this.cardHeight === 'number') {
-      height = `style="height: ${Math.round(this.cardHeight)}px"`;
+      height = `style="height: ${this.cardHeight}px"`;
     }
 
     const isActive = index === '0' ? 'active' : '';

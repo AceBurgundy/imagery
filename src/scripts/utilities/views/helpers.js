@@ -90,8 +90,8 @@ ipcMain.handle('join-paths', (_, paths) => {
   return join(...paths);
 });
 
-ipcMain.handle('path-basename', (_, _path) => {
-  return basename(_path);
+ipcMain.handle('path-basename', (event, pathArg) => {
+  return basename(pathArg);
 });
 
 ipcMain.handle('on-fullscreen', () => {

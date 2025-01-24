@@ -7,6 +7,7 @@ import { Navigator } from './classes/navigator.js';
 import history from '../../utilities/frontend/history.js';
 import { Component, css } from '../../../../component.js';
 import { Toast } from "./components/toast.js";
+import { pathBasename } from '../../utilities/frontend/handles.js';
 
 /**
  * DirectoryScreen Component
@@ -47,6 +48,7 @@ export class DirectoryScreen extends Component {
     // Set HTML template
     this.template = /*html*/`
       ${ new Toast() }
+      <p id="directory-name"></p>
       <div id="directory-contents"></div>
     `;
   }

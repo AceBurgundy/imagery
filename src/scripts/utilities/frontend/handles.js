@@ -18,3 +18,13 @@ export function print(...message) {
 export async function pathJoin(...paths) {
   return await window.ipcRenderer.invoke('join-paths', paths)
 }
+
+/**
+ * @param {string} path - The path whose basename to be extracted from
+ * @returns {Promise<string>}
+ */
+export async function pathBasename(path) {
+  console.log(`received path ${path}`);
+
+  return await window.ipcRenderer.invoke('path-basename', path)
+}
