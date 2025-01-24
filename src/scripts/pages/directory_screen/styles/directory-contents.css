@@ -1,11 +1,14 @@
+#directory-name {
+  color: white;
+  font-size: 2rem;
+}
+
 #directory-contents {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 2rem;
   box-sizing: border-box;
-  padding: 2rem;
   height: 100vh;
-  overflow: scroll;
   scroll-behavior: smooth;
   grid-template-rows: repeat(3, 1fr);
 }
