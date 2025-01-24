@@ -42,7 +42,7 @@ class ImageryCache {
     const imageryData = {
       currentIndex: 0,
       processedEntries: [],
-      unprocessedEntrie: []
+      unprocessedEntries: []
     };
 
     this.#activePath = folderPath;
