@@ -1,6 +1,6 @@
 const { join, dirname } = require('path');
 const { app } = require('electron');
-const { FileGroup, isMediaFile, isVideoFile, readFolder, defaultThumbnailPath } = require("./helpers.js");
+const { FileGroup, isMediaFile, isVideoFile, readFolder, defaultThumbnailPath, logError } = require("./helpers.js");
 const { Dirent } = require("fs");
 const { join } = require("path");
 
@@ -29,11 +29,22 @@ class ImageryCache {
   /**
    * Creates a new cache entry for a given path.
    * @param {string} folderPath - The folder path for caching.
-   * @returns {Promise<ImageryEntriesCache>} The newly created cache entry.
    */
   async prepareEntries(folderPath) {
+    if (this.#cache.has(folderPath) === true) {
+      // If path already exist, cache the path
+      this.#getCache(folderPath).currentIndex = 0;
+      this.#activePath = folderPath;
+      return;
+    }
+
     /** @type {ImageryEntriesCache} */
-    const imageryData = {};
+    const imageryData = {
+      currentIndex: 0,
+      processedEntries: [],
+      unprocessedEntrie: []
+    };
+
     this.#activePath = folderPath;
 
     /** @type {Dirent[]} */
@@ -63,6 +74,7 @@ class ImageryCache {
   /**
    * Adds a new processed entry to the list.
    *
+   * @param {ImageryEntriesCache} pathCache - The cache value for this current path.
    * @param {number} index - The index of the entry.
    * @param {string} title - The title of the entry.
    * @param {string} destination - The destination path for the entry.
@@ -74,8 +86,7 @@ class ImageryCache {
    * @returns {ImageryEntry} The completed card data for render
    * @throws {Error} If the entry is null or not an object.
    */
-  async #pushNewEntry(index, title, destination, isMedia, path, thumbnailType, thumbnailPath) {
-    // if (!entry) throw new Error("Entry cannot be null");
+  async #pushNewEntry(pathCache, index, title, destination, isMedia, path, thumbnailType, thumbnailPath) {
     const entry = {
       "index": index,
       "title": title,
@@ -90,8 +101,8 @@ class ImageryCache {
 
     entry.cachedThumbnail = this.#loadThumbnail(thumbnailType, thumbnailPath);
 
-    entries.processedEntries.push(entry);
-    entries.currentIndex++;
+    pathCache.processedEntries.push(entry);
+    pathCache.currentIndex++;
 
     return entry;
   }
@@ -146,22 +157,19 @@ class ImageryCache {
     if (!this.#activePath) return null;
 
     /** @type {ImageryEntriesCache} */
-    const entriesCache = this.#getCache(this.#activePath);
+    const pathCache = this.#getCache(this.#activePath);
 
-    if (!entriesCache) return null;
+    if (!pathCache) return null;
 
     // if entry for this index has already been processed
-    if (entriesCache.processedEntries.length >= entriesCache.currentIndex) {
-      entriesCache.currentIndex++;
-      return entriesCache.processedEntries[entriesCache.currentIndex];
+    if (pathCache.processedEntries.length >= pathCache.currentIndex) {
+      pathCache.currentIndex++;
+      return pathCache.processedEntries[pathCache.currentIndex];
     }
 
     /** @type {ImageryDirent} */
-    const currentEntry = entriesCache.unprocessedEntries[entriesCache.currentIndex];
-
-    if (!currentEntry) {
-      return null;
-    }
+    const currentEntry = pathCache.unprocessedEntries[pathCache.currentIndex];
+    if (!currentEntry) return null;
 
     const entryPath = join(this.#activePath, currentEntry.name);
 
@@ -169,7 +177,8 @@ class ImageryCache {
       if (!currentEntry.isCompatibleFile) return null;
 
       return this.#pushNewEntry(
-        index = entriesCache.currentIndex,
+        pathCache = pathCache,
+        index = pathCache.currentIndex,
         title = currentEntry.name,
         destination = this.#activePath,
         isMedia = true,
@@ -187,22 +196,25 @@ class ImageryCache {
       while (queue.length > 0 && foldersTraversed < 10) {
         const currentFolderPath = queue.shift();
 
+        /** @type {Dirent[]} */
         const subEntries = await readFolder(currentFolderPath);
 
-        let containsMedia = false;
-        let containsSubfolders = false;
+        let hasMedia = false;
+        let subFoldersPresent = false;
 
         for (const subEntry of subEntries) {
           if (subEntry.isFile() && isMediaFile(subEntry.name) === true) {
-            containsMedia = true;
-          } else if (subEntry.isDirectory() === true) {
-            containsSubfolders = true;
+            hasMedia = true;
           }
 
-          if (containsMedia && containsSubfolders) break;
+          else if (subEntry.isDirectory() === true) {
+            subFoldersPresent = true;
+          }
+
+          if (hasMedia && subFoldersPresent) break;
         }
 
-        if (containsMedia) {
+        if (hasMedia) {
           if (foldersTraversed > 0 && !firstValidParent) {
             firstValidParent = dirname(currentFolderPath);
           }
@@ -215,7 +227,8 @@ class ImageryCache {
           );
 
           return this.#pushNewEntry(
-            index = entriesCache.currentIndex,
+            pathCache = pathCache,
+            index = pathCache.currentIndex,
             isMedia = false,
             destination = this.#activePath,
             title = currentEntry.name,
