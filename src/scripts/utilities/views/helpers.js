@@ -2,7 +2,7 @@ const { createLogger, transports: _transports } = require('winston');
 const { nativeImage, app, ipcMain, BrowserWindow } = require('electron');
 const { extname, basename, join } = require('path');
 const path = require('path');
-const { promises } = require('fs');
+const { promises, Dirent } = require('fs');
 
 /**
  * Enum for different file group types.
@@ -85,8 +85,8 @@ async function getThumbnail(filePath, size) {
 /**
  * Reads the contents of a folder and returns the directory entries.
  * @param {string} path - Path of the folder to read.
- * @returns {Promise<fs.Dirent[]>} - A promise that resolves to an array of directory entries.
- * @throws {Error} - Throws error if folder reading fails due to permission issues or other errors.
+ * @returns {Promise<Dirent[]>} - A promise that resolves to an array of directory entries.
+ * @throws {Error} Throws error if folder reading fails due to permission issues or other errors.
  */
 async function readFolder(path) {
   try {
