@@ -71,7 +71,8 @@ app.on('ready', () => {
 
   // Dynamically require scripts if necessary
   const directory = join(__dirname, './scripts/utilities/views/directory.js');
-  const cache = join(__dirname, './scripts/utilities/views/cache-views.js');
+  const cache = join(__dirname, './scripts/utilities/views/imagery-cache.js');
+  const types = join(__dirname, './scripts/utilities/views/type_definitions.js');
   const helpers = join(__dirname, './scripts/utilities/views/helpers.js');
 
   if (existsSync(directory) === true) {
@@ -80,6 +81,10 @@ app.on('ready', () => {
 
   if (existsSync(cache) === true) {
     require(cache);
+  }
+
+  if (existsSync(types) === true) {
+    require(types);
   }
 
   if (existsSync(helpers) === true) {
