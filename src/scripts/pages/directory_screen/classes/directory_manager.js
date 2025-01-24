@@ -1,4 +1,5 @@
 import { pathBasename, print } from '../../../utilities/frontend/handles.js';
+import { ImageryEntry } from '../../../utilities/frontend/type_definitions.js';
 import history from '../../../utilities/frontend/history.js';
 
 /**
@@ -35,26 +36,13 @@ export class DirectoryManager {
   cardHeight;
 
   /**
-   * @public
-   * @type {number}
-   */
-  numberOfCardsToAddOnScroll;
-
-  /**
-   * @private
-   * @type {number}
-   */
-  fixedVisibleCardCount;
-
-  /**
    * Initializes the DirectoryManager.
    *
    * @param {HTMLDivElement} box - The main directory container.
    */
   constructor(box) {
     this.updateBox(box);
-    this.numberOfCardsToAddOnScroll = 0;
-    this.fixedVisibleCardCount = 0;
+    this.currentPath = null;
   }
 
   /**
@@ -101,37 +89,45 @@ export class DirectoryManager {
         title.textContent = root ? path.replace('\\', '') : basename
       })
 
-    this.numberOfCardsToAddOnScroll = this.boxStyle.gridTemplateColumns.split(' ').length;
-    this.fixedVisibleCardCount = this.numberOfCardsToAddOnScroll * 3;
-
     this.addContent();
   }
+
 
   /**
    * @private
    * Add content to the directory container.
    */
   async addContent() {
-    const nextCardIndex = Number(this.box.lastElementChild?.dataset.index ?? 0) + 1;
+    if (!this.currentPath) this.currentPath = this.box.dataset.path;
 
-    const query = this.box.children.length === 0
-      ? [this.box.dataset.path, 0, this.fixedVisibleCardCount]
-      : [this.box.dataset.path, nextCardIndex, nextCardIndex + this.numberOfCardsToAddOnScroll];
-
-    const entries = await window.ipcRenderer.invoke('get-directory-contents', query);
-
-    if (!Array.isArray(entries)) {
-      console.error('process-entries expected an array of entries.');
-      return;
+    // If the path changed, stop adding more cards for the current path
+    if (this.currentPath !== this.box.dataset.path) {
+      this.currentPath = this.box.dataset.path;
     }
 
-    if (entries.length === 0) {
-      return;
-    }
+    // prepares the entries for the directory
+    await window.ipcRenderer.invoke('prepare-directory-contents', this.box.dataset.path);
 
-    entries.forEach(async content => {
+    // after all entries are prepared,
+    // a loop is used to make sure cards are added one by one,
+    // if and only if, the current card has been added successfully
+    // despite the slowness,
+    // this prevents asynchronous issues where only 20+ cards are added,
+    // while 100+ cards are pending in async.
+    // When this happens, changing to a new folder will causes the 70 cards
+    // of the previous folder, to load on the current folder.
+    // Only 1 card is being added and processed at a time.
+    while (true) {
+
+      /** @type {ImageryEntry} */
+      const content = await window.ipcRenderer.invoke('next-content');
+
+      if (!content) {
+        return;
+      }
+
       await this.processEntry(content);
-    });
+    }
   }
 
   /**
@@ -153,14 +149,23 @@ export class DirectoryManager {
    * @private
    * Process a directory entry and add it to the container.
    *
-   * @param {DirectoryEntry} content - The directory entry to process.
+   * @param {ImageryEntry} content - The directory entry to process.
    */
   async processEntry(content) {
-    const { title, destination, isMedia, index, thumbnailPath, thumbnailType, path } = content;
-
-    if (this.notAllowed(title, destination) === true) {
-      return;
-    }
+    const {
+      index,
+      title,
+      destination,
+      isMedia,
+      path,
+      thumbnailType,
+      thumbnailPath,
+      cachedThumbnail,
+      size,
+      dateCreated,
+      dateModified,
+      dateTaken
+    } = content;
 
     let height = '';
 
@@ -177,8 +182,12 @@ export class DirectoryManager {
         class="directory-cell ${cellType} ${isActive}"
         data-title="${title}"
         data-path="${path}"
-        data-index="${index}">
-        <img id="directory-content-${index}-image" class="directory-cell__image" src="${await this.placeholderImage()}">
+        data-index="${index}"
+        data-size="${size}"
+        data-date-created="${dateCreated}"
+        data-date-modified="${dateModified}"
+        data-date-taken="${dateTaken}">
+        <img id="directory-content-${index}-image" class="directory-cell__image" src="${cachedThumbnail ?? await this.placeholderImage()}">
         <p>${title}</p>
       </div>
     `;
@@ -187,11 +196,14 @@ export class DirectoryManager {
       return;
     }
 
-    const nextIndex = parseInt(index) + 1;
     const sibling = this.box.querySelector(`[data-index="${nextIndex}"]`);
-
     (sibling || this.box).insertAdjacentHTML(sibling ? 'beforebegin' : 'beforeend', card);
-    this.loadThumbnail(thumbnailPath, thumbnailType, index);
+
+    if (!cachedThumbnail) {
+      // Loads the thumbnail using the frontend if cache is not yet available.
+      // cache will usually be available on the next load of this same directory
+      this.loadThumbnail(thumbnailPath, thumbnailType, index);
+    }
   }
 
   /**
