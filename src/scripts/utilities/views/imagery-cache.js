@@ -1,7 +1,7 @@
 const { join, dirname } = require('path');
 const { app } = require('electron');
 const { FileGroup, isMediaFile, isVideoFile, readFolder, defaultThumbnailPath, logError } = require("./helpers.js");
-const { Dirent, promises, exists, existsSync, readFileSync } = require("fs");
+const { Dirent, promises, exists, existsSync, readFileSync, readdirSync, readdir } = require("fs");
 const { join } = require("path");
 const zlib = require("zlib");
 
@@ -254,6 +254,36 @@ class ImageryCache {
     }
 
     return metadata;
+  }
+
+  /**
+   * Calculates the total size of all saved cache files
+   *
+   * @returns {number} -1 if an error had occured else the total size
+   */
+  static async totalCacheSize() {
+    let totalSize = 0;
+
+    try {
+      const files = await promises.readdir(temporaryDirectory);
+
+      // Filter files matching the cache file pattern
+      const cacheFiles = files.filter(file =>
+        file.startsWith('imagery-') && file.endsWith('.json.gz')
+      );
+
+      // Calculate total size
+      for (const file of cacheFiles) {
+        const filePath = join(temporaryDirectory, file);
+        const status = await promises.stat(filePath);
+        totalSize += status.size;
+      }
+
+      return totalSize;
+    } catch (error) {
+      logError(error);
+      return -1;
+    }
   }
 
   /**
