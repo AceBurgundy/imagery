@@ -9,7 +9,7 @@ const temporaryDirectory = app.getPath('temp');
 
 const cachedFileDestination = name => join(
   temporaryDirectory,
-  `padara-${name.replace(' ', '_')}.json.gz`
+  `imagery-${name.replace(' ', '_')}.json.gz`
 );
 
 const { readFolder, isMediaFile, isVideoFile } = require('./helpers.js');
