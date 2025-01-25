@@ -1,11 +1,16 @@
 const { join, dirname } = require('path');
 const { app } = require('electron');
 const { FileGroup, isMediaFile, isVideoFile, readFolder, defaultThumbnailPath, logError } = require("./helpers.js");
-const { Dirent } = require("fs");
+const { Dirent, promises, exists, existsSync, readFileSync } = require("fs");
 const { join } = require("path");
+const zlib = require("zlib");
 
 const temporaryDirectory = app.getPath('temp');
-const cacheFilePath = join(temporaryDirectory, 'imagery-cache.json');
+
+const cachedFileDestination = name => join(
+  temporaryDirectory,
+  `padara-${name.replace(' ', '_')}.json.gz`
+);
 
 const { readFolder, isMediaFile, isVideoFile } = require('./helpers.js');
 const { Dirent } = require('fs');
@@ -17,24 +22,61 @@ const { ImageryEntriesCache, ImageryDirent, ImageryEntry } = require("./type_def
  */
 class ImageryCache {
   /** @type {Map<string, ImageryEntriesCache>} */
-  #cache;
+  entriesManager;
+
   /** @type {string} */
   #activePath;
 
+  /** @type {bool} */
+  #cacheActivePath;
+
   constructor() {
-    this.#cache = new Map();
+    this.entriesManager = new Map();
     this.#activePath = "";
+    this.#cacheActivePath = false;
   }
 
   /**
    * Creates a new cache entry for a given path.
    * @param {string} folderPath - The folder path for caching.
+   * @param {bool} cache - True if entries of folderPath argument must be cached.
    */
-  async prepareEntries(folderPath) {
-    if (this.#cache.has(folderPath) === true) {
+  async prepareEntries(folderPath, cache = false) {
+    // Check if the new folder is not the same as the current folder
+    // meaning the user opened a new folder
+    if (this.#activePath !== "" && this.#activePath !== folderPath) {
+      if (this.#cacheActivePath) {
+        // save previous path if user wants it cached.
+        this.#save(this.#activePath);
+      } else {
+        // remove the path from the cache to save memory
+        this.entriesManager.delete(this.#activePath);
+
+        // remove the saved cache file of it too.
+        if (this.#pathInCache(this.#activePath) === true) {
+          this.#deleteCachedEntry(this.#activePath);
+        }
+      }
+    }
+
+    // If path still in memory use it
+    if (this.entriesManager.has(folderPath) === true) {
       // If path already exist, cache the path
       this.#getCache(folderPath).currentIndex = 0;
       this.#activePath = folderPath;
+      this.#cacheActivePath = cache;
+
+      return;
+    }
+
+    if (this.#pathInCache(folderPath) === true) {
+      const pathEntriesCache = this.#loadCachedEntry(folderPath);
+      pathEntriesCache.currentIndex = 0;
+      this.entriesManager.set(folderPath, pathEntriesCache);
+
+      this.#activePath = folderPath;
+      this.#cacheActivePath = cache;
+
       return;
     }
 
@@ -46,6 +88,7 @@ class ImageryCache {
     };
 
     this.#activePath = folderPath;
+    this.#cacheActivePath = cache;
 
     /** @type {Dirent[]} */
     const entries = await readFolder(folderPath);
@@ -59,7 +102,72 @@ class ImageryCache {
       }
     });
 
-    this.#cache.set(folderPath, imageryData)
+    this.entriesManager.set(folderPath, imageryData)
+  }
+
+  /**
+   * Save a paths entries.
+   *
+   * @param {string} path - The directory path of the entry.
+   * @param {ImageryEntriesCache} entries - The entries to be saved.
+   * @returns {Promise<bool>} If the entry has been succesfully saved.
+  */
+  async #save(path, entries) {
+    try {
+      await promises.writeFile(
+        cachedFileDestination(path),
+        zlib.gzipSync(
+          JSON.stringify(entries)
+        )
+      );
+
+      return true;
+    } catch (error) {
+      logError(error);
+      return false;
+    }
+  }
+
+  /**
+   * Checks whether a path is currently cached or not.
+   *
+   * @param {string} path - The directory path of the entry.
+   * @returns {Promise<bool>}.
+  */
+  #pathInCache = path =>
+    existsSync(
+      cachedFileDestination(path)
+    );
+
+  /**
+   * Retrieves a paths' entries.
+   *
+   * @param {string} path - The directory path of the entry.
+   *
+   * @throws {Exception} - If cache file does not exist. Use #pathInCache first.
+   * @returns {ImageryEntriesCache} If the entry has been succesfully saved.
+  */
+  #loadCachedEntry(path) {
+    const savedPath = cachedFileDestination(path);
+
+    return JSON.parse(
+      zlib.gunzipSync(
+        readFileSync(savedPath)
+      )
+    );
+  }
+
+  /**
+   * Deletes a cached entry file.
+   *
+   * @param {string} path - The directory path of the entry.
+   *
+   * @throws {Exception} - If cache file does not exist. Use #pathInCache first.
+   * @throws {Exception} - If error in deletion occurs.
+  */
+  async #deleteCachedEntry(path) {
+    const savedPath = cachedFileDestination(path);
+    await promises.unlink(savedPath);
   }
 
   /**
@@ -68,7 +176,7 @@ class ImageryCache {
    * @returns {ImageryEntriesCache|null} The cached entry, or null if not found.
    */
   #getCache(folderPath) {
-    return this.#cache.get(folderPath) || null;
+    return this.entriesManager.get(folderPath) || null;
   }
 
   /**
