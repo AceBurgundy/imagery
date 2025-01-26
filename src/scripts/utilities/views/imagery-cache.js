@@ -16,6 +16,10 @@ const { readFolder, isMediaFile, isVideoFile } = require('./helpers.js');
 const { Dirent } = require('fs');
 
 const { ImageryEntriesCache, ImageryDirent, ImageryEntry } = require("./type_definitions.js");
+const Entries = require('../../../../models/Entries.js');
+const Location = require('../../../../models/Location.js');
+const ProcessedEntries = require('../../../../models/Entries.js');
+const UnprocessedEntries = require('../../../../models/UnprocessedEntries.js');
 
 /**
  * Class representing a cache system for imagery.
@@ -45,23 +49,18 @@ class ImageryCache {
     // Check if the new folder is not the same as the current folder
     // meaning the user opened a new folder
     if (this.#activePath !== "" && this.#activePath !== folderPath) {
-      if (this.#cacheActivePath) {
-        // save previous path if user wants it cached.
-        this.#save(this.#activePath);
-      } else {
+      if (this.#cacheActivePath === false) {
         // remove the path from the cache to save memory
         this.entriesManager.delete(this.#activePath);
 
-        // remove the saved cache file of it too.
-        if (this.#pathInCache(this.#activePath) === true) {
-          this.#deleteCachedEntry(this.#activePath);
-        }
+        // remove the saved cache in the database too of it too.
+        this.#deleteDatabaseRecord(this.#activePath);
       }
     }
 
     // If path still in memory use it
     if (this.entriesManager.has(folderPath) === true) {
-      // If path already exist, cache the path
+      // If path already exist, just set the index back to 0 to start displaying from start again
       this.#getCache(folderPath).currentIndex = 0;
       this.#activePath = folderPath;
       this.#cacheActivePath = cache;
@@ -69,14 +68,13 @@ class ImageryCache {
       return;
     }
 
-    if (this.#pathInCache(folderPath) === true) {
+    // If path not in memory but in database
+    if (this.#pathInDatabase(folderPath) === true) {
       const pathEntriesCache = this.#loadCachedEntry(folderPath);
-      pathEntriesCache.currentIndex = 0;
       this.entriesManager.set(folderPath, pathEntriesCache);
 
       this.#activePath = folderPath;
       this.#cacheActivePath = cache;
-
       return;
     }
 
@@ -99,33 +97,28 @@ class ImageryCache {
         "isFile": entry.isFile(),
         "isCompatibleFile": entry.isFile() && isMediaFile(entry.name),
         "isDirectory": entry.isDirectory()
-      }
+      };
     });
 
-    this.entriesManager.set(folderPath, imageryData)
-  }
+    // Set imagery data in memory
+    this.entriesManager.set(folderPath, imageryData);
 
-  /**
-   * Save a paths entries.
-   *
-   * @param {string} path - The directory path of the entry.
-   * @param {ImageryEntriesCache} entries - The entries to be saved.
-   * @returns {Promise<bool>} If the entry has been succesfully saved.
-  */
-  async #save(path, entries) {
-    try {
-      await promises.writeFile(
-        cachedFileDestination(path),
-        zlib.gzipSync(
-          JSON.stringify(entries)
-        )
-      );
+    // Create a new Location based on the folderPath argument
+    const location = await Location.create({
+      path: folderPath,
+      lastVisited: new Date().toISOString(),
+    });
 
-      return true;
-    } catch (error) {
-      logError(error);
-      return false;
-    }
+    // Prepare unprocessedEntries for bulk saving in UnprocessedEntries
+    const unprocessedEntriesData = imageryData.unprocessedEntries.map(entry => ({
+      name: entry.name,
+      isFile: entry.isFile,
+      isCompatibleFile: entry.isCompatibleFile,
+      isDirectory: entry.isDirectory,
+      locationID: location.id
+    }));
+
+    UnprocessedEntries.bulkCreate(unprocessedEntriesData);
   }
 
   /**
@@ -134,40 +127,82 @@ class ImageryCache {
    * @param {string} path - The directory path of the entry.
    * @returns {Promise<bool>}.
   */
-  #pathInCache = path =>
-    existsSync(
-      cachedFileDestination(path)
-    );
+  async #pathInDatabase(path) {
+    const location = await Location.findOne({
+      where: { path }
+    });
+
+    return location !== null;
+  }
 
   /**
    * Retrieves a paths' entries.
    *
    * @param {string} path - The directory path of the entry.
    *
-   * @throws {Exception} - If cache file does not exist. Use #pathInCache first.
+   * @throws {Exception} - If cache file does not exist. Use #pathInDatabase first.
    * @returns {ImageryEntriesCache} If the entry has been succesfully saved.
   */
-  #loadCachedEntry(path) {
-    const savedPath = cachedFileDestination(path);
+  async #loadCachedEntry(path) {
+    // get location first
+    const location = await Location.findOne({
+      where: { path }
+    });
 
-    return JSON.parse(
-      zlib.gunzipSync(
-        readFileSync(savedPath)
+    if (!location) return {
+      currentIndex: 0,
+      unprocessedEntries: [],
+      processedEntries: []
+    };
+
+    location.lastVisited = new Date().toISOString()
+    location.save();
+
+    const processedEntries = await ProcessedEntries.findAll({
+      where: { locationID: location.id }
+    });
+
+    const unprocessedEntries = await UnprocessedEntries.findAll({
+      where: { locationID: location.id }
+    });
+
+    return {
+      currentIndex: 0,
+      unprocessedEntries: unprocessedEntries.map(entry =>
+        entry.get({ plain: true })
+      ),
+      processedEntries: processedEntries.map(entry =>
+        entry.get({ plain: true })
       )
-    );
+    }
   }
 
   /**
    * Deletes a cached entry file.
    *
    * @param {string} path - The directory path of the entry.
-   *
-   * @throws {Exception} - If cache file does not exist. Use #pathInCache first.
-   * @throws {Exception} - If error in deletion occurs.
+   * @throws {Exception} - If error in any sequelize process occurs
   */
-  async #deleteCachedEntry(path) {
-    const savedPath = cachedFileDestination(path);
-    await promises.unlink(savedPath);
+  async #deleteDatabaseRecord(path) {
+    // Find the location based on the path
+    const location = await Location.findOne({
+      where: { path }
+    });
+
+    // If the location is found
+    if (!location) return;
+
+    // Delete all processed entries related to the location
+    await Entries.destroy({
+      where: { locationID: location.id }
+    });
+
+    // Delete all unprocessed entries related to the location
+    await UnprocessedEntries.destroy({
+      where: { locationID: location.id }
+    });
+
+    location.destroy();
   }
 
   /**
@@ -209,7 +244,10 @@ class ImageryCache {
 
     entry.cachedThumbnail = this.#loadThumbnail(thumbnailType, thumbnailPath);
 
+    // Save entry in both database and entry manager
+    Entries.create(entry);
     pathCache.processedEntries.push(entry);
+
     pathCache.currentIndex++;
 
     return entry;
@@ -257,60 +295,6 @@ class ImageryCache {
   }
 
   /**
-   * Calculates the total size of all saved cache files
-   *
-   * @returns {number} -1 if an error had occured else the total size
-   */
-  static async totalCacheSize() {
-    let totalSize = 0;
-
-    try {
-      const files = await promises.readdir(temporaryDirectory);
-
-      // Filter files matching the cache file pattern
-      const cacheFiles = files.filter(file =>
-        file.startsWith('imagery-') && file.endsWith('.json.gz')
-      );
-
-      // Calculate total size
-      for (const file of cacheFiles) {
-        const filePath = join(temporaryDirectory, file);
-        const status = await promises.stat(filePath);
-        totalSize += status.size;
-      }
-
-      return totalSize;
-    } catch (error) {
-      logError(error);
-      return -1;
-    }
-  }
-
-  /**
-  * Clears old cache by the day it was last opened
-  *
-  * @param {number} [maxAgeInDays=30] - Total days to check before deleting an entry
-  */
-  async clearOldCache(maxAgeInDays = 30) {
-    const files = await promises.readdir(temporaryDirectory);
-
-    for (const file of files) {
-      if (file.startsWith('imagery-') && file.endsWith('.json.gz') === true) {
-          const filePath = join(temporaryDirectory, file);
-
-          promises.stat(filePath)
-            .then(status => {
-              const reachedMaxAge = (Date.now() - status.mtimeMs) > maxAgeInDays * 86400000;
-
-              if (reachedMaxAge) {
-                promises.unlink(filePath);
-              }
-            });
-      }
-    }
-  }
-
-  /**
    * Processes the next unprocessed entry.
    * @param {string} folderPath - The parent folder path.
    * @returns {Promise<ImageryEntry|null>} The processed entry or null if no valid entry is processed.
@@ -322,17 +306,12 @@ class ImageryCache {
     const pathCache = this.#getCache(this.#activePath);
     if (!pathCache) return null;
 
-    if (pathCache.processedEntries.length >= pathCache.unprocessedEntries.length) {
-      const activePathEntries = this.entriesManager.get(this.#activePath);
-
-      this.#save(this.#activePath, activePathEntries);
-      return null;
-    }
-
     // if entry for this index has already been processed
     if (pathCache.processedEntries.length >= pathCache.currentIndex) {
+      const entry = pathCache.processedEntries[pathCache.currentIndex];
       pathCache.currentIndex++;
-      return pathCache.processedEntries[pathCache.currentIndex];
+
+      return entry;
     }
 
     /** @type {ImageryDirent} */

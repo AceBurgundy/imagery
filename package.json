@@ -33,6 +33,9 @@
     "electron-squirrel-startup": "^1.0.1",
     "eslint": "^9.16.0",
     "eslint-config-google": "^0.14.0",
+    "fs-extra": "^11.3.0",
+    "sequelize": "^6.37.5",
+    "sqlite3": "^5.1.7",
     "winston": "^3.11.0"
   }
 }
