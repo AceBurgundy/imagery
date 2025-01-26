@@ -287,6 +287,30 @@ class ImageryCache {
   }
 
   /**
+  * Clears old cache by the day it was last opened
+  *
+  * @param {number} [maxAgeInDays=30] - Total days to check before deleting an entry
+  */
+  async clearOldCache(maxAgeInDays = 30) {
+    const files = await promises.readdir(temporaryDirectory);
+
+    for (const file of files) {
+      if (file.startsWith('imagery-') && file.endsWith('.json.gz') === true) {
+          const filePath = join(temporaryDirectory, file);
+
+          promises.stat(filePath)
+            .then(status => {
+              const reachedMaxAge = (Date.now() - status.mtimeMs) > maxAgeInDays * 86400000;
+
+              if (reachedMaxAge) {
+                promises.unlink(filePath);
+              }
+            });
+      }
+    }
+  }
+
+  /**
    * Processes the next unprocessed entry.
    * @param {string} folderPath - The parent folder path.
    * @returns {Promise<ImageryEntry|null>} The processed entry or null if no valid entry is processed.
@@ -296,8 +320,14 @@ class ImageryCache {
 
     /** @type {ImageryEntriesCache} */
     const pathCache = this.#getCache(this.#activePath);
-
     if (!pathCache) return null;
+
+    if (pathCache.processedEntries.length >= pathCache.unprocessedEntries.length) {
+      const activePathEntries = this.entriesManager.get(this.#activePath);
+
+      this.#save(this.#activePath, activePathEntries);
+      return null;
+    }
 
     // if entry for this index has already been processed
     if (pathCache.processedEntries.length >= pathCache.currentIndex) {
@@ -314,7 +344,7 @@ class ImageryCache {
     if (currentEntry.isFile) {
       if (!currentEntry.isCompatibleFile) return null;
 
-      return this.#pushNewEntry(
+      this.#pushNewEntry(
         pathCache = pathCache,
         index = pathCache.currentIndex,
         title = currentEntry.name,
