@@ -27,6 +27,15 @@ ipcMain.handle('next-content', async _ =>
 );
 
 /**
+ * Cache a folders entries.
+ * @param {string} path - The path to the directory to process.
+ * @throws {Error} - Throws an error if the folder path does not exist.
+ */
+ipcMain.handle('cache-directory-contents', async (event, path) =>
+  imageryCache.save(path)
+);
+
+/**
  * Returns a list of media file names (images or videos) in a given directory path.
  * @param {string} folderPath - The path to the folder to scan for media files.
  * @returns {Promise<string[]>} - A promise that resolves to an array of media file names in the folder.

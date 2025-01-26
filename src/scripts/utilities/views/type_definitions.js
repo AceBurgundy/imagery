@@ -25,6 +25,9 @@
 /**
  * @typedef {Object} ImageryEntriesCache
  * @property {number} currentIndex - The current index of processing.
+ * @property {bool} persistData - True if user wants to cache contents of a path.
+ * @property {bool} savingPreviousData - True if persistData function currently saving the previous in memory data
+ * @property {number} locationID - The database id of the location to save entries at if persist data is true
  * @property {ImageryEntry[]} processedEntries - List of processed entries.
  * @property {ImageryDirent[]} unprocessedEntries - List of unprocessed directory entries.
  */

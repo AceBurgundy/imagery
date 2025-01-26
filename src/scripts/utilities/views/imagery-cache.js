@@ -26,32 +26,27 @@ const UnprocessedEntries = require('../../../../models/UnprocessedEntries.js');
  */
 class ImageryCache {
   /** @type {Map<string, ImageryEntriesCache>} */
-  entriesManager;
+  memory;
 
   /** @type {string} */
   #activePath;
 
-  /** @type {bool} */
-  #cacheActivePath;
-
   constructor() {
-    this.entriesManager = new Map();
+    this.memory = new Map();
     this.#activePath = "";
-    this.#cacheActivePath = false;
   }
 
   /**
    * Creates a new cache entry for a given path.
    * @param {string} folderPath - The folder path for caching.
-   * @param {bool} cache - True if entries of folderPath argument must be cached.
    */
-  async prepareEntries(folderPath, cache = false) {
+  async prepareEntries(folderPath) {
     // Check if the new folder is not the same as the current folder
     // meaning the user opened a new folder
     if (this.#activePath !== "" && this.#activePath !== folderPath) {
-      if (this.#cacheActivePath === false) {
+      if (this.memory.get(this.#activePath).persistData === false) {
         // remove the path from the cache to save memory
-        this.entriesManager.delete(this.#activePath);
+        this.memory.delete(this.#activePath);
 
         // remove the saved cache in the database too of it too.
         this.#deleteDatabaseRecord(this.#activePath);
@@ -59,73 +54,57 @@ class ImageryCache {
     }
 
     // If path still in memory use it
-    if (this.entriesManager.has(folderPath) === true) {
+    if (this.memory.has(folderPath) === true) {
       // If path already exist, just set the index back to 0 to start displaying from start again
       this.#getCache(folderPath).currentIndex = 0;
       this.#activePath = folderPath;
-      this.#cacheActivePath = cache;
 
       return;
     }
 
     // If path not in memory but in database
-    if (this.#pathInDatabase(folderPath) === true) {
-      const pathEntriesCache = this.#loadCachedEntry(folderPath);
-      this.entriesManager.set(folderPath, pathEntriesCache);
+    if (await this.#pathInDatabase(folderPath) === true) {
+      const pathEntriesCache = await this.#loadCachedEntry(folderPath);
+      this.memory.set(folderPath, pathEntriesCache);
 
       this.#activePath = folderPath;
-      this.#cacheActivePath = cache;
       return;
     }
 
     /** @type {ImageryEntriesCache} */
     const imageryData = {
       currentIndex: 0,
+      persistData: false,
+      savingPreviousData: false,
+      locationID: null,
       processedEntries: [],
       unprocessedEntries: []
     };
 
     this.#activePath = folderPath;
-    this.#cacheActivePath = cache;
 
     /** @type {Dirent[]} */
     const entries = await readFolder(folderPath);
 
-    imageryData.unprocessedEntries = entries.map(entry => {
+    imageryData.unprocessedEntries = entries.map((entry, index) => {
       return {
-        "name": entry.name,
-        "isFile": entry.isFile(),
-        "isCompatibleFile": entry.isFile() && isMediaFile(entry.name),
-        "isDirectory": entry.isDirectory()
+        index,
+        name: entry.name,
+        isFile: entry.isFile(),
+        isCompatibleFile: entry.isFile() && isMediaFile(entry.name),
+        isDirectory: entry.isDirectory()
       };
     });
 
     // Set imagery data in memory
-    this.entriesManager.set(folderPath, imageryData);
-
-    // Create a new Location based on the folderPath argument
-    const location = await Location.create({
-      path: folderPath,
-      lastVisited: new Date().toISOString(),
-    });
-
-    // Prepare unprocessedEntries for bulk saving in UnprocessedEntries
-    const unprocessedEntriesData = imageryData.unprocessedEntries.map(entry => ({
-      name: entry.name,
-      isFile: entry.isFile,
-      isCompatibleFile: entry.isCompatibleFile,
-      isDirectory: entry.isDirectory,
-      locationID: location.id
-    }));
-
-    UnprocessedEntries.bulkCreate(unprocessedEntriesData);
+    this.memory.set(folderPath, imageryData);
   }
 
   /**
    * Checks whether a path is currently cached or not.
    *
    * @param {string} path - The directory path of the entry.
-   * @returns {Promise<bool>}.
+   * @returns {Promise<Location|null>}.
   */
   async #pathInDatabase(path) {
     const location = await Location.findOne({
@@ -141,7 +120,7 @@ class ImageryCache {
    * @param {string} path - The directory path of the entry.
    *
    * @throws {Exception} - If cache file does not exist. Use #pathInDatabase first.
-   * @returns {ImageryEntriesCache} If the entry has been succesfully saved.
+   * @returns {Promise<ImageryEntriesCache>} If the entry has been succesfully saved.
   */
   async #loadCachedEntry(path) {
     // get location first
@@ -159,11 +138,13 @@ class ImageryCache {
     location.save();
 
     const processedEntries = await ProcessedEntries.findAll({
-      where: { locationID: location.id }
+      where: { locationID: location.id },
+      order: ["title", "DESC"]
     });
 
     const unprocessedEntries = await UnprocessedEntries.findAll({
-      where: { locationID: location.id }
+      where: { locationID: location.id },
+      order: ["name", "DESC"]
     });
 
     return {
@@ -211,7 +192,7 @@ class ImageryCache {
    * @returns {ImageryEntriesCache|null} The cached entry, or null if not found.
    */
   #getCache(folderPath) {
-    return this.entriesManager.get(folderPath) || null;
+    return this.memory.get(folderPath) || null;
   }
 
   /**
@@ -240,17 +221,82 @@ class ImageryCache {
       "thumbnailPath": thumbnailPath,
       "cachedThumbnail": null,
       ...await this.#populateMetadata(path)
-    }
+    };
 
     entry.cachedThumbnail = this.#loadThumbnail(thumbnailType, thumbnailPath);
 
-    // Save entry in both database and entry manager
-    Entries.create(entry);
+    // Prepend the new entry to the processedEntries array
     pathCache.processedEntries.push(entry);
+
+    // Save to database if persistData is true
+    if (pathCache.persistData === true) {
+      this.#savePreviouslyAddedEntries(pathCache, pathCache.currentIndex);
+
+      ProcessedEntries.create({
+        locationID: pathCache.locationID,
+        ...entry
+      });
+    }
 
     pathCache.currentIndex++;
 
+    // Return the entry for rendering
     return entry;
+  }
+
+  /**
+   * Must call save() first for the location id to be created
+   * @param {ImageryEntriesCache} pathCache - The cache value for this current path.
+   * @param {number} lastEntryIndex - The last entry saved in memory.
+   * @returns
+   */
+  async #savePreviouslyAddedEntries(pathCache, lastEntryIndex) {
+    if (pathCache.savingPreviousData === true) return;
+    const locationID = pathCache.locationID;
+
+    // Prepare unprocessedEntries for bulk saving in UnprocessedEntries
+    UnprocessedEntries.bulkCreate(
+      imageryData.unprocessedEntries.map(
+        entry => ({
+          name: entry.name,
+          isFile: entry.isFile,
+          isCompatibleFile: entry.isCompatibleFile,
+          isDirectory: entry.isDirectory,
+          locationID
+        })
+      )
+    );
+
+    ProcessedEntries.bulkCreate(
+      pathCache.processedEntries.slice(0, lastEntryIndex).map(
+        entry => ({ ...entry, locationID })
+      )
+    );
+
+    this.memory.get(this.#activePath).savingPreviousData = false;
+  }
+
+  /**
+   * Sets the persistData value of a path to true.
+   *
+   * This will help pushNewEntry to know if it must start saving the data in the database
+   * @param {string} folderPath - The path to be saved
+   */
+  async save(folderPath) {
+    if (this.memory.has(folderPath) === false) return;
+    const location = await this.#pathInDatabase(folderPath);
+    let locationID = location ? location.id : null;
+
+    if (locationID === null) {
+      const location = await Location.create({
+        path: folderPath,
+        lastVisited: new Date().toISOString(),
+      });
+
+      locationID = location.id;
+    }
+
+    this.memory.get(this.#activePath).locationID = locationID;
   }
 
   /**
