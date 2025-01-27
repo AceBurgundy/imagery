@@ -1,5 +1,4 @@
 import { pathBasename, print } from '../../../utilities/frontend/handles.js';
-import { ImageryEntry } from '../../../frontend/type_definitions.js';
 import history from '../../../utilities/frontend/history.js';
 import { Toast } from '../components/toast.js';
 

@@ -4,8 +4,9 @@ import { MouseWheelManager } from './classes/wheel_manager.js';
 import { TouchManager } from './classes/touch_manager.js';
 import { ClickManager } from './classes/click_manager.js';
 import { Navigator } from './classes/navigator.js';
-import history from '../../frontend/history.js';
-import { Component, css } from '../../../../../component.js';
+
+import history from '../../utilities/frontend/history.js';
+import { Component, css } from '../../../../component.js';
 import { Toast } from "./components/toast.js";
 
 /**
