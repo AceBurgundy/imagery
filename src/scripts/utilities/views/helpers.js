@@ -90,9 +90,7 @@ async function getThumbnail(filePath, size) {
  */
 async function readFolder(path) {
   try {
-    const entries = await promises.readdir(path, { withFileTypes: true });
-
-    return entries;
+    return await promises.readdir(path, { withFileTypes: true });
   } catch (error) {
     if (error.code === "EPERM") {
       logError(`Permission denied for ${path}. Skipping this folder.`);
