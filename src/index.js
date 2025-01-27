@@ -23,6 +23,7 @@ switch (process.platform) {
 }
 
 const createWindow = () => {
+
   const window = new BrowserWindow({
     webPreferences: {
       nodeIntegration: true,
@@ -67,28 +68,13 @@ const createWindow = () => {
 };
 
 app.on('ready', () => {
-  app.commandLine.appendSwitch('disable-logging');
+  // app.commandLine.appendSwitch('disable-logging');
 
   // Dynamically require scripts if necessary
   const directory = join(__dirname, './scripts/utilities/views/directory.js');
-  const cache = join(__dirname, './scripts/utilities/views/imagery-cache.js');
-  const types = join(__dirname, './scripts/utilities/views/type_definitions.js');
-  const helpers = join(__dirname, './scripts/utilities/views/helpers.js');
 
   if (existsSync(directory) === true) {
     require(directory);
-  }
-
-  if (existsSync(cache) === true) {
-    require(cache);
-  }
-
-  if (existsSync(types) === true) {
-    require(types);
-  }
-
-  if (existsSync(helpers) === true) {
-    require(helpers);
   }
 
   createWindow();
@@ -103,7 +89,8 @@ app.on('activate', () => {
 });
 
 // Handle uncaught exceptions in the main process
-process.on('uncaughtException', error => {
+process.on('uncaughtException', (error) => {
+  console.log(error.stack);
   logError(`Uncaught Exception: ${error}`);
   app.quit();
 });
