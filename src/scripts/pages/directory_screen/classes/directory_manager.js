@@ -1,20 +1,26 @@
 import { pathBasename, print } from '../../../utilities/frontend/handles.js';
-import { ImageryEntry } from '../../../utilities/frontend/type_definitions.js';
+import { ImageryEntry } from '../../../frontend/type_definitions.js';
 import history from '../../../utilities/frontend/history.js';
+import { Toast } from '../components/toast.js';
 
 /**
  * Directory Manager for handling directory contents and rendering.
  */
 export class DirectoryManager {
   /**
-   * @typedef {Object} DirectoryEntry
-   * @property {string} title - The title of the directory entry.
-   * @property {string} path - The path of the directory entry.
-   * @property {string} destination - The path where this entry belongs (ex: parent folder path).
-   * @property {string} thumbnailPath - The path of the thumbnail image.
-   * @property {string} thumbnailType - The type of the thumbnail (e.g., "image", "video").
+   * @typedef {Object} ImageryEntry
    * @property {number} index - The index of the entry.
+   * @property {string} title - The title of the entry.
+   * @property {string} destination - The destination path for the entry.
    * @property {boolean} isMedia - Indicates if the entry is media.
+   * @property {string} path - The file path of the entry.
+   * @property {string} thumbnailType - The type of thumbnail (e.g., 'image', 'video').
+   * @property {string} thumbnailPath - The path to the thumbnail.
+   * @property {string} cachedThumbnail - The processed thumbnail.
+   * @property {string} size - The file size in bytes.
+   * @property {string} dateCreated - The date when the file was created.
+   * @property {string} dateModified - The date when the file was last modified.
+   * @property {string} dateTaken - The date when the file was created or last modified.
    */
 
   /**
@@ -121,10 +127,15 @@ export class DirectoryManager {
     // Speed will less likely be an issue as the backend have caching mechanisms in place
     while (true) {
 
-      /** @type {ImageryEntry} */
+      /** @type {ImageryEntry|String} */
       const content = await window.ipcRenderer.invoke('next-content');
 
       if (!content) {
+        return;
+      }
+
+      if (typeof content === 'string') {
+        Toast.broadcast(content);
         return;
       }
 

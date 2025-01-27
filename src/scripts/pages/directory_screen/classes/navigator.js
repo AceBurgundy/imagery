@@ -1,5 +1,5 @@
 import { MediaViewer } from '../../media_viewer_screen/media-viewer.js';
-import history from '../../../utilities/frontend/history.js';
+import history from '../../../frontend/history.js';
 import { DirectoryManager } from './directory_manager.js';
 import { Toast } from '../components/toast.js';
 

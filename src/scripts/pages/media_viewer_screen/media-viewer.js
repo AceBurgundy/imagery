@@ -1,5 +1,5 @@
-import { Component, css } from '../../../../component.js';
-import { pathJoin } from '../../utilities/frontend/handles.js';
+import { Component, css } from '../../../../../component.js';
+import { pathJoin } from '../../frontend/handles.js';
 
 /**
  * Represents a media viewer component that can display images and videos.
