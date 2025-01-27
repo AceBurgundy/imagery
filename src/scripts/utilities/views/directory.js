@@ -40,14 +40,14 @@ ipcMain.handle('next-content', async _ =>
   imageryCache.next()
 );
 
-// /**
-//  * Cache a folders entries.
-//  * @param {string} path - The path to the directory to process.
-//  * @throws {Error} - Throws an error if the folder path does not exist.
-//  */
-// ipcMain.handle('cache-directory-contents', async (event, path) =>
-//   imageryCache.save(path)
-// );
+/**
+ * Cache a folders entries.
+ * @param {string} path - The path to the directory to process.
+ * @throws {Error} - Throws an error if the folder path does not exist.
+ */
+ipcMain.handle('cache-directory-contents', async (event, path) =>
+  imageryCache.save(path)
+);
 
 /**
  * Returns a list of media file names (images or videos) in a given directory path.
