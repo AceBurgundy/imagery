@@ -6,7 +6,7 @@
    },
     "rules": {
         "linebreak-style": ["error", "windows"],
-        "max-len": ["error", { "code": 100, "tabWidth": 4, "comments": 100 }],
+        "max-len": ["error", { "code": 100, "tabWidth": 4, "comments": 200 }],
         "arrow-parens": ["error", "as-needed"],
         "comma-dangle": ["error", "never"]
    }
