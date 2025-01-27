@@ -12,6 +12,11 @@ const Location = database.define('Location', {
     allowNull: false,
     unique: true,
   },
+  sortBy: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: "name"
+  },
   lastVisited: {
     type: DataTypes.STRING,
     allowNull: true,
