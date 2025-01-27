@@ -298,6 +298,24 @@ class ImageryCache {
 
     pathCache.currentIndex++;
 
+    // Update record in the database if present
+    Location.findOne({
+      where: { path: this.#activePath }
+    })
+    .then(location => {
+      if (!location) return;
+
+      ProcessedEntries.update(
+        { locationID: location.id, ...entry },
+        {
+          where: {
+            title,
+            locationID: location.id
+          }
+        }
+      );
+    });
+
     // Return the entry for rendering
     return entry;
   }
