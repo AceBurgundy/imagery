@@ -233,18 +233,7 @@ class ImageryCache {
 
       await ProcessedEntries.create({
         locationID: location.id,
-        index: entry.index,
-        title: entry.title,
-        destination: entry.destination,
-        isMedia: entry.isMedia,
-        path: entry.path,
-        thumbnailType: entry.thumbnailType,
-        thumbnailPath: entry.thumbnailPath,
-        cachedThumbnail: entry.cachedThumbnail,
-        size: entry.size,
-        dateCreated: entry.dateCreated,
-        dateModified: entry.dateModified,
-        dateTaken: entry.dateTaken
+        ...entry
       });
 
       send("update-save-process", percentage);
