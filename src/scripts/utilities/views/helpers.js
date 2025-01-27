@@ -92,7 +92,6 @@ async function readFolder(path) {
   try {
     const entries = await promises.readdir(path, { withFileTypes: true });
 
-    // return entries if no error
     return entries;
   } catch (error) {
     if (error.code === "EPERM") {
@@ -112,10 +111,26 @@ const logger = createLogger({
 
 /**
  * Logs and saves an error to a file.
- * @param {Error | string} error - An instance of Error or a string describing the error.
+ * @param {Error} error - An instance of Error or a string describing the error.
  */
 function logError(error) {
-  logger.error(`${new Date().toISOString()} : ${error}`);
+  const options = {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  };
+
+  logger.error({
+    timestamp: new Intl.DateTimeFormat('en-US', options).format(
+      new Date()
+    ),
+    error,
+    stack: error.stack,
+    cause: error.cause
+  });
 }
 
 /**
