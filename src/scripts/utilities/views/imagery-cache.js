@@ -1,25 +1,41 @@
 const { join, dirname } = require('path');
-const { app } = require('electron');
 const { FileGroup, isMediaFile, isVideoFile, readFolder, defaultThumbnailPath, logError } = require("./helpers.js");
-const { Dirent, promises, exists, existsSync, readFileSync, readdirSync, readdir } = require("fs");
-const { join } = require("path");
-const zlib = require("zlib");
+const { Dirent } = require("fs");
 
-const temporaryDirectory = app.getPath('temp');
+const Location = require('../../../../models/location.js');
+const ProcessedEntries = require('../../../../models/processed_entries.js');
+const { BrowserWindow } = require('electron');
 
-const cachedFileDestination = name => join(
-  temporaryDirectory,
-  `imagery-${name.replace(' ', '_')}.json.gz`
-);
+/**
+ * @typedef {Object} ImageryEntry
+ * @property {number} index - The index of the entry.
+ * @property {string} title - The title of the entry.
+ * @property {string} destination - The destination path for the entry.
+ * @property {boolean} isMedia - Indicates if the entry is media.
+ * @property {string} path - The file path of the entry.
+ * @property {string} thumbnailType - The type of thumbnail (e.g., 'image', 'video').
+ * @property {string} thumbnailPath - The path to the thumbnail.
+ * @property {string} cachedThumbnail - The processed thumbnail.
+ * @property {string} size - The file size in bytes.
+ * @property {string} dateCreated - The date when the file was created.
+ * @property {string} dateModified - The date when the file was last modified.
+ * @property {string} dateTaken - The date when the file was created or last modified.
+ */
 
-const { readFolder, isMediaFile, isVideoFile } = require('./helpers.js');
-const { Dirent } = require('fs');
+/**
+ * @typedef {Object} ImageryDirent
+ * @property {string} name - The name of the directory entry.
+ * @property {boolean} isFile - Whether the entry is a file.
+ * @property {boolean} isCompatibleFile - Whether the entry is a compatible file.
+ * @property {boolean} isDirectory - Whether the entry is a directory.
+ */
 
-const { ImageryEntriesCache, ImageryDirent, ImageryEntry } = require("./type_definitions.js");
-const Entries = require('../../../../models/Entries.js');
-const Location = require('../../../../models/Location.js');
-const ProcessedEntries = require('../../../../models/Entries.js');
-const UnprocessedEntries = require('../../../../models/UnprocessedEntries.js');
+/**
+ * @typedef {Object} ImageryEntriesCache
+ * @property {number} currentIndex - The current index of processing.
+ * @property {ImageryEntry[]} processedEntries - List of processed entries.
+ * @property {ImageryDirent[]} unprocessedEntries - List of unprocessed directory entries.
+ */
 
 /**
  * Class representing a cache system for imagery.
@@ -74,9 +90,6 @@ class ImageryCache {
     /** @type {ImageryEntriesCache} */
     const imageryData = {
       currentIndex: 0,
-      persistData: false,
-      savingPreviousData: false,
-      locationID: null,
       processedEntries: [],
       unprocessedEntries: []
     };
@@ -142,16 +155,9 @@ class ImageryCache {
       order: ["title", "DESC"]
     });
 
-    const unprocessedEntries = await UnprocessedEntries.findAll({
-      where: { locationID: location.id },
-      order: ["name", "DESC"]
-    });
-
     return {
       currentIndex: 0,
-      unprocessedEntries: unprocessedEntries.map(entry =>
-        entry.get({ plain: true })
-      ),
+      unprocessedEntries: [],
       processedEntries: processedEntries.map(entry =>
         entry.get({ plain: true })
       )
@@ -178,11 +184,6 @@ class ImageryCache {
       where: { locationID: location.id }
     });
 
-    // Delete all unprocessed entries related to the location
-    await UnprocessedEntries.destroy({
-      where: { locationID: location.id }
-    });
-
     location.destroy();
   }
 
@@ -193,6 +194,63 @@ class ImageryCache {
    */
   #getCache(folderPath) {
     return this.memory.get(folderPath) || null;
+  }
+
+  // Saves the current path to the database
+  async save() {
+    const location = await Location.create({
+      path: this.#activePath,
+    });
+
+    /**
+     * Send an asynchronous message to the renderer process via `channel`, along with
+     * arguments. Arguments will be serialized with the Structured Clone Algorithm,
+     * just like `postMessage`, so prototype chains will not be included. Sending
+     * Functions, Promises, Symbols, WeakMaps, or WeakSets will throw an exception.
+     *
+     * :::warning
+     *
+     * Sending non-standard JavaScript types such as DOM objects or special Electron
+     * objects will throw an exception.
+     *
+     * :::
+     *
+     * For additional reading, refer to Electron's IPC guide.
+     */
+    const send = (channel, ...args) => BrowserWindow
+      .getFocusedWindow()
+      .webContents
+      .send(channel, ...args);
+
+    send("start-save-process");
+
+    const entries = this.#getCache(this.#activePath).processedEntries;
+    const total = entries.length;
+
+    for (let index = 0; index < total; index++) {
+      const entry = entries[index];
+      const percentage = (index / (total - 1)) * 100;
+
+      await ProcessedEntries.create({
+        locationID: location.id,
+        index: entry.index,
+        title: entry.title,
+        destination: entry.destination,
+        isMedia: entry.isMedia,
+        path: entry.path,
+        thumbnailType: entry.thumbnailType,
+        thumbnailPath: entry.thumbnailPath,
+        cachedThumbnail: entry.cachedThumbnail,
+        size: entry.size,
+        dateCreated: entry.dateCreated,
+        dateModified: entry.dateModified,
+        dateTaken: entry.dateTaken
+      });
+
+      send("update-save-process", percentage);
+    }
+
+    send("end-save-process");
   }
 
   /**
@@ -227,76 +285,10 @@ class ImageryCache {
 
     // Prepend the new entry to the processedEntries array
     pathCache.processedEntries.push(entry);
-
-    // Save to database if persistData is true
-    if (pathCache.persistData === true) {
-      this.#savePreviouslyAddedEntries(pathCache, pathCache.currentIndex);
-
-      ProcessedEntries.create({
-        locationID: pathCache.locationID,
-        ...entry
-      });
-    }
-
     pathCache.currentIndex++;
 
     // Return the entry for rendering
     return entry;
-  }
-
-  /**
-   * Must call save() first for the location id to be created
-   * @param {ImageryEntriesCache} pathCache - The cache value for this current path.
-   * @param {number} lastEntryIndex - The last entry saved in memory.
-   * @returns
-   */
-  async #savePreviouslyAddedEntries(pathCache, lastEntryIndex) {
-    if (pathCache.savingPreviousData === true) return;
-    const locationID = pathCache.locationID;
-
-    // Prepare unprocessedEntries for bulk saving in UnprocessedEntries
-    UnprocessedEntries.bulkCreate(
-      imageryData.unprocessedEntries.map(
-        entry => ({
-          name: entry.name,
-          isFile: entry.isFile,
-          isCompatibleFile: entry.isCompatibleFile,
-          isDirectory: entry.isDirectory,
-          locationID
-        })
-      )
-    );
-
-    ProcessedEntries.bulkCreate(
-      pathCache.processedEntries.slice(0, lastEntryIndex).map(
-        entry => ({ ...entry, locationID })
-      )
-    );
-
-    this.memory.get(this.#activePath).savingPreviousData = false;
-  }
-
-  /**
-   * Sets the persistData value of a path to true.
-   *
-   * This will help pushNewEntry to know if it must start saving the data in the database
-   * @param {string} folderPath - The path to be saved
-   */
-  async save(folderPath) {
-    if (this.memory.has(folderPath) === false) return;
-    const location = await this.#pathInDatabase(folderPath);
-    let locationID = location ? location.id : null;
-
-    if (locationID === null) {
-      const location = await Location.create({
-        path: folderPath,
-        lastVisited: new Date().toISOString(),
-      });
-
-      locationID = location.id;
-    }
-
-    this.memory.get(this.#activePath).locationID = locationID;
   }
 
   /**
@@ -343,7 +335,10 @@ class ImageryCache {
   /**
    * Processes the next unprocessed entry.
    * @param {string} folderPath - The parent folder path.
-   * @returns {Promise<ImageryEntry|null>} The processed entry or null if no valid entry is processed.
+   * @returns {Promise<ImageryEntry|null|String>}
+   * - The processed entry
+   * - or null if no valid entry is processed
+   * - or the string message indicating the there is no more folder next.
    */
   async next() {
     if (!this.#activePath) return null;
@@ -351,6 +346,10 @@ class ImageryCache {
     /** @type {ImageryEntriesCache} */
     const pathCache = this.#getCache(this.#activePath);
     if (!pathCache) return null;
+
+    if (pathCache.currentIndex >= pathCache.unprocessedEntries) {
+      return "Nothing more to process";
+    }
 
     // if entry for this index has already been processed
     if (pathCache.processedEntries.length >= pathCache.currentIndex) {
