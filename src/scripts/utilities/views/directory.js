@@ -16,7 +16,21 @@ ipcMain.handle('prepare-directory-contents', async (event, path) => {
   await imageryCache.prepareEntries(path);
 });
 
-const { ImageryEntry } = require('./type_definitions.js');
+/**
+ * @typedef {Object} ImageryEntry
+ * @property {number} index - The index of the entry.
+ * @property {string} title - The title of the entry.
+ * @property {string} destination - The destination path for the entry.
+ * @property {boolean} isMedia - Indicates if the entry is media.
+ * @property {string} path - The file path of the entry.
+ * @property {string} thumbnailType - The type of thumbnail (e.g., 'image', 'video').
+ * @property {string} thumbnailPath - The path to the thumbnail.
+ * @property {string} cachedThumbnail - The processed thumbnail.
+ * @property {string} size - The file size in bytes.
+ * @property {string} dateCreated - The date when the file was created.
+ * @property {string} dateModified - The date when the file was last modified.
+ * @property {string} dateTaken - The date when the file was created or last modified.
+ */
 
 /**
  * Retrieves the next content from the imagery cache.
@@ -26,14 +40,14 @@ ipcMain.handle('next-content', async _ =>
   imageryCache.next()
 );
 
-/**
- * Cache a folders entries.
- * @param {string} path - The path to the directory to process.
- * @throws {Error} - Throws an error if the folder path does not exist.
- */
-ipcMain.handle('cache-directory-contents', async (event, path) =>
-  imageryCache.save(path)
-);
+// /**
+//  * Cache a folders entries.
+//  * @param {string} path - The path to the directory to process.
+//  * @throws {Error} - Throws an error if the folder path does not exist.
+//  */
+// ipcMain.handle('cache-directory-contents', async (event, path) =>
+//   imageryCache.save(path)
+// );
 
 /**
  * Returns a list of media file names (images or videos) in a given directory path.
