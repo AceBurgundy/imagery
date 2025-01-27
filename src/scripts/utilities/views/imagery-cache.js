@@ -283,8 +283,19 @@ class ImageryCache {
 
     entry.cachedThumbnail = this.#loadThumbnail(thumbnailType, thumbnailPath);
 
-    // Prepend the new entry to the processedEntries array
-    pathCache.processedEntries.push(entry);
+    const indexToReplace = pathCache.processedEntries.findIndex(
+      item => item.name === title
+    );
+
+    if (indexToReplace) {
+      // replace the entry with the new entry
+      // great for updating old entries
+      pathCache.processedEntries[indexToReplace] = entry;
+    } else {
+      // Prepend the new entry to the processedEntries array
+      pathCache.processedEntries.push(entry);
+    }
+
     pathCache.currentIndex++;
 
     // Return the entry for rendering
