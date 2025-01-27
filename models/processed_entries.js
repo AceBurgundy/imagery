@@ -1,6 +1,6 @@
 const { DataTypes } = require('sequelize');
 const database = require('../src/scripts/utilities/views/sequelize.js');
-const Location = require('./Location.js');
+const Location = require('./location.js');
 const { logError } = require('../src/scripts/utilities/views/helpers.js');
 
 const ProcessedEntries = database.define('ProcessedEntries', {
