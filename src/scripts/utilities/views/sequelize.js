@@ -1,8 +1,17 @@
+const { app } = require('electron');
 const { Sequelize } = require('sequelize');
+const { join } = require('path');
+
+const temporaryDirectory = app.getPath('temp');
+
+const cachedFileDestination = join(
+  temporaryDirectory,
+  `imagery.sqlite3`
+);
 
 const database = new Sequelize({
   dialect: 'sqlite',
-  storage: './Imagery.sqlite3',
+  storage: './imagery.sqlite3',
   define: {
     freezeTableName: true
   },
