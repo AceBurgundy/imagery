@@ -3,7 +3,7 @@ const { FileGroup, isMediaFile, isVideoFile, readFolder, defaultThumbnailPath, l
 const { Dirent } = require("fs");
 
 const Location = require('../../../../models/location.js');
-const ProcessedEntries = require('../../../../models/processed_entries.js');
+const Entries = require('../../../../models/entries.js');
 const { BrowserWindow } = require('electron');
 
 /**
@@ -150,7 +150,7 @@ class ImageryCache {
     location.lastVisited = new Date().toISOString()
     location.save();
 
-    const processedEntries = await ProcessedEntries.findAll({
+    const processedEntries = await Entries.findAll({
       where: { locationID: location.id },
       order: ["title", "DESC"]
     });
@@ -231,7 +231,7 @@ class ImageryCache {
       const entry = entries[index];
       const percentage = (index / (total - 1)) * 100;
 
-      await ProcessedEntries.create({
+      await Entries.create({
         locationID: location.id,
         ...entry
       });
@@ -294,7 +294,7 @@ class ImageryCache {
     .then(location => {
       if (!location) return;
 
-      ProcessedEntries.update(
+      Entries.update(
         { locationID: location.id, ...entry },
         {
           where: {

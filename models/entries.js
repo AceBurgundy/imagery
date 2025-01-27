@@ -3,7 +3,7 @@ const database = require('../src/scripts/utilities/views/sequelize.js');
 const Location = require('./location.js');
 const { logError } = require('../src/scripts/utilities/views/helpers.js');
 
-const ProcessedEntries = database.define('ProcessedEntries', {
+const Entries = database.define('entries', {
   index: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -55,21 +55,21 @@ const ProcessedEntries = database.define('ProcessedEntries', {
   },
 });
 
-//  Location has many ProcessedEntries
-ProcessedEntries.belongsTo(Location, {
+//  Location has many Entries
+Entries.belongsTo(Location, {
   foreignKey: 'locationID',
   as: 'processedEntries',
   onDelete: 'CASCADE'
 });
 
-Location.hasMany(ProcessedEntries, {
+Location.hasMany(Entries, {
   foreignKey: 'locationID',
   as: 'processedEntries'
 });
 
-ProcessedEntries.sync()
+Entries.sync()
   .catch(error =>
     logError(error)
   );
 
-module.exports = ProcessedEntries;
+module.exports = Entries;

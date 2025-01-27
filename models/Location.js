@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const database = require('../src/scripts/utilities/views/sequelize.js');
 
-const Location = database.define('Location', {
+const Location = database.define('path_metadata', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
