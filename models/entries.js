@@ -58,13 +58,13 @@ const Entries = database.define('entries', {
 //  Location has many Entries
 Entries.belongsTo(Location, {
   foreignKey: 'locationID',
-  as: 'processedEntries',
+  as: 'entries',
   onDelete: 'CASCADE'
 });
 
 Location.hasMany(Entries, {
   foreignKey: 'locationID',
-  as: 'processedEntries'
+  as: 'entries'
 });
 
 Entries.sync()
