@@ -129,6 +129,8 @@ function logError(error) {
     stack: error.stack,
     cause: error.cause
   });
+
+  console.log(error);
 }
 
 /**
