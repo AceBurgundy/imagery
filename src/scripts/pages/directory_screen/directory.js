@@ -28,7 +28,7 @@ export class DirectoryScreen extends Component {
       const box = document.getElementById("directory-contents");
 
       const manager = new DirectoryManager(box);
-      const navigator = new Navigator(manager);
+      const navigator = new Navigator(manager, box);
 
       const keyboard = new KeyboardManager();
       const click = new ClickManager();
