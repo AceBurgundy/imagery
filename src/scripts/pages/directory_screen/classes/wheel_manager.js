@@ -22,6 +22,12 @@ export class MouseWheelManager {
     const scrollingUp = event.deltaY < 0;
     const scrollingDown = !scrollingUp;
 
-    if (scrollingDown) manager.addContent();
+    if (scrollingDown) {
+      // pass
+    }
+
+    if (scrollingUp) {
+      // pass
+    }
   }
 }

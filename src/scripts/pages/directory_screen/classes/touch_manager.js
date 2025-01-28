@@ -22,6 +22,12 @@ export class TouchManager {
     const scrollingUp = event.touches[0].clientY < event.touches[0].previousY;
     const scrollingDown = !scrollingUp;
 
-    if (scrollingDown) manager.addContent();
+    if (scrollingDown) {
+      // pass
+    }
+
+    if (scrollingUp) {
+      // pass
+    }
   }
 }
