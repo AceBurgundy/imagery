@@ -25,6 +25,10 @@ export class KeyboardManager {
       return;
     }
 
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      event.preventDefault();
+    }
+
     navigator.navigateCards(event);
   };
 }
