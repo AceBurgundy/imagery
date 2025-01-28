@@ -51,6 +51,12 @@ export class DirectoryManager {
   }
 
   /**
+   * @public
+   * @type {number}
+  */
+  rowCardCount;
+
+  /**
    * Update the directory container and calculate card height.
    *
    * @param {HTMLDivElement} box - The main directory container.
@@ -94,6 +100,7 @@ export class DirectoryManager {
         title.textContent = root ? path.replace('\\', '') : basename
       })
 
+    this.rowCardCount = this.boxStyle.gridTemplateColumns.split(' ').length;
     this.addContent();
   }
 
@@ -125,20 +132,24 @@ export class DirectoryManager {
     //
     // Speed will less likely be an issue as the backend have caching mechanisms in place
     while (true) {
+      try {
+        /** @type {ImageryEntry|null|String} */
+        const content = await window.ipcRenderer.invoke('next-content');
 
-      /** @type {ImageryEntry|String} */
-      const content = await window.ipcRenderer.invoke('next-content');
+        if (!content) {
+          continue;
+        }
 
-      if (!content) {
-        return;
+        if (typeof content === 'string') {
+          Toast.broadcast(content);
+          return;
+        }
+
+        await this.processEntry(content);
+      } catch (error) {
+        // print error but continue the loop
+        print(error.message);
       }
-
-      if (typeof content === 'string') {
-        Toast.broadcast(content);
-        return;
-      }
-
-      await this.processEntry(content);
     }
   }
 
@@ -199,7 +210,7 @@ export class DirectoryManager {
         data-date-created="${dateCreated}"
         data-date-modified="${dateModified}"
         data-date-taken="${dateTaken}">
-        <img id="directory-content-${index}-image" class="directory-cell__image" src="${cachedThumbnail ?? await this.placeholderImage()}">
+        <img id="directory-content-${index}-image" class="directory-cell__image" src="${await this.placeholderImage()}">
         <p>${title}</p>
       </div>
     `;
@@ -208,22 +219,18 @@ export class DirectoryManager {
       return;
     }
 
-    const sibling = this.box.querySelector(`[data-index="${nextIndex}"]`);
-    (sibling || this.box).insertAdjacentHTML(sibling ? 'beforebegin' : 'beforeend', card);
-
-    if (!cachedThumbnail) {
-      // Loads the thumbnail using the frontend if cache is not yet available.
-      // cache will usually be available on the next load of this same directory
-      this.loadThumbnail(thumbnailPath, thumbnailType, index);
-    }
+    this.box.insertAdjacentHTML('beforeend', card);
+    this.loadThumbnail(cachedThumbnail, thumbnailPath, thumbnailType, index);
   }
 
   /**
    * Checks if the thumbnail works properly. If not, it will use the placeholderImage;
-   * @param {string} thumbnail - The thumbnail path to be checked
+   * @param {string} cachedThumbnail - The cached thumbnail file
+   * @param {string} thumbnailPath - The path to the thumbnail
+   * @param {string} thumbnailType - The type of the thumbnail
    * @param {number} cardIndex - The index of the image element to review
    */
-  async loadThumbnail(thumbnailPath, thumbnailType, cardIndex) {
+  async loadThumbnail(cachedThumbnail, thumbnailPath, thumbnailType, cardIndex) {
     const cardImage = document.getElementById(`directory-content-${cardIndex}-image`);
 
     if (!cardImage) {
@@ -232,11 +239,20 @@ export class DirectoryManager {
 
     const defaultImage = await this.placeholderImage();
 
-    let thumbnail = thumbnailPath.trim() === ''
-      ? defaultImage
-      : thumbnailType === 'video'
-        ? await window.ipcRenderer.invoke('get-thumbnail', thumbnailPath) ?? defaultImage
-        : thumbnailPath;
+    // if cache thumbnail is not empty
+    // use the cached thumbnail
+    // else if thumbnail path is empty,
+    // use default image
+    // else if thumbnail is video (thumbnail path is not empty)
+    // extract the thumbnail from the video
+    // else use the thumbnail as is (thumbnail path is image)
+    let thumbnail = cachedThumbnail.trim() !== ''
+      ? cachedThumbnail
+      : thumbnailPath.trim() === ''
+        ? defaultImage
+        : thumbnailType === 'video'
+          ? await window.ipcRenderer.invoke('get-thumbnail', thumbnailPath) ?? defaultImage
+          : thumbnailPath
 
     cardImage.src = thumbnail;
     cardImage.onerror = () => cardImage.src = defaultImage;
