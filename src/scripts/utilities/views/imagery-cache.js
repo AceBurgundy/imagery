@@ -1,6 +1,6 @@
 const { join, dirname } = require('path');
-const { FileGroup, isMediaFile, isVideoFile, readFolder, defaultThumbnailPath, logError } = require("./helpers.js");
-const { Dirent } = require("fs");
+const { FileGroup, isMediaFile, isVideoFile, readFolder, defaultThumbnailPath, logError, getThumbnail } = require("./helpers.js");
+const { Dirent, promises } = require("fs");
 
 const Location = require('../../../../models/location.js');
 const Entries = require('../../../../models/entries.js');
@@ -33,8 +33,9 @@ const { BrowserWindow } = require('electron');
 /**
  * @typedef {Object} ImageryEntriesCache
  * @property {number} currentIndex - The current index of processing.
- * @property {ImageryEntry[]} processedEntries - List of processed entries.
- * @property {ImageryDirent[]} unprocessedEntries - List of unprocessed directory entries.
+ * @property {number} processed - The number of entries processed.
+ * @property {ImageryEntry[]} okEntries - List of processed entries.
+ * @property {ImageryDirent[]} allEntries - List of unprocessed directory entries.
  */
 
 /**
@@ -90,8 +91,9 @@ class ImageryCache {
     /** @type {ImageryEntriesCache} */
     const imageryData = {
       currentIndex: 0,
-      processedEntries: [],
-      unprocessedEntries: []
+      processed: 0,
+      okEntries: [],
+      allEntries: []
     };
 
     this.#activePath = folderPath;
@@ -99,7 +101,7 @@ class ImageryCache {
     /** @type {Dirent[]} */
     const entries = await readFolder(folderPath);
 
-    imageryData.unprocessedEntries = entries.map((entry, index) => {
+    imageryData.allEntries = entries.map((entry, index) => {
       return {
         index,
         name: entry.name,
@@ -143,22 +145,24 @@ class ImageryCache {
 
     if (!location) return {
       currentIndex: 0,
-      unprocessedEntries: [],
-      processedEntries: []
+      processed: 0,
+      allEntries: [],
+      okEntries: []
     };
 
     location.lastVisited = new Date().toISOString()
     location.save();
 
-    const processedEntries = await Entries.findAll({
+    const okEntries = await Entries.findAll({
       where: { locationID: location.id },
       order: ["title", "DESC"]
     });
 
     return {
       currentIndex: 0,
-      unprocessedEntries: [],
-      processedEntries: processedEntries.map(entry =>
+      processed: 0,
+      allEntries: [],
+      okEntries: okEntries.map(entry =>
         entry.get({ plain: true })
       )
     }
@@ -224,7 +228,7 @@ class ImageryCache {
 
     send("start-save-process");
 
-    const entries = this.#getCache(this.#activePath).processedEntries;
+    const entries = this.#getCache(this.#activePath).okEntries;
     const total = entries.length;
 
     for (let index = 0; index < total; index++) {
@@ -270,19 +274,21 @@ class ImageryCache {
       ...await this.#populateMetadata(path)
     };
 
-    entry.cachedThumbnail = this.#loadThumbnail(thumbnailType, thumbnailPath);
+    entry.cachedThumbnail = thumbnailType !== FileGroup.IMAGE
+      ? this.#loadThumbnail(thumbnailType, thumbnailPath)
+      : entry.cachedThumbnail = thumbnailPath;
 
-    const indexToReplace = pathCache.processedEntries.findIndex(
+    const indexToReplace = pathCache.okEntries.findIndex(
       item => item.name === title
     );
 
-    if (indexToReplace) {
+    if (indexToReplace > -1) {
       // replace the entry with the new entry
       // great for updating old entries
-      pathCache.processedEntries[indexToReplace] = entry;
+      pathCache.okEntries[indexToReplace] = entry;
     } else {
-      // Prepend the new entry to the processedEntries array
-      pathCache.processedEntries.push(entry);
+      // Prepend the new entry to the okEntries array
+      pathCache.okEntries.push(entry);
     }
 
     pathCache.currentIndex++;
@@ -304,6 +310,16 @@ class ImageryCache {
         }
       );
     });
+
+    // If cacheThumbnail promise is still not done,
+    // set value to null
+    // this wont be a problem as pathCache.okEntries.push(entry);
+    // already contains the cachedThumbnail with promise
+    // by the time the user opens the same folder again,
+    // cacheThumbnail had already been filled
+    if (typeof entry.cachedThumbnail === 'object') {
+      entry.cachedThumbnail = '';
+    }
 
     // Return the entry for rendering
     return entry;
@@ -331,7 +347,7 @@ class ImageryCache {
     const metadata = {};
 
     try {
-      const stats = await fs.stat(path);
+      const stats = await promises.stat(path);
       metadata["size"] = stats.size; // File size in bytes
       metadata["dateCreated"] = stats.birthtime; // Date file was created
       metadata["dateModified"] = stats.mtime; // Date file was last modified
@@ -359,42 +375,49 @@ class ImageryCache {
    * - or the string message indicating the there is no more folder next.
    */
   async next() {
-    if (!this.#activePath) return null;
+    if (!this.#activePath) throw Error("Cannot find active path");
 
     /** @type {ImageryEntriesCache} */
-    const pathCache = this.#getCache(this.#activePath);
-    if (!pathCache) return null;
+    const cache = this.#getCache(this.#activePath);
 
-    if (pathCache.currentIndex >= pathCache.unprocessedEntries) {
+    if (!cache) throw Error("Cannot find cache for current path");
+
+    let { okEntries, allEntries } = cache;
+    const entryExist = okEntries[cache.currentIndex];
+
+    // return if entry for this index has already been processed
+    if (entryExist) {
+      cache.currentIndex++;
+      return entryExist;
+    }
+
+    // This will be crossed if entry being accessed doesnt exist yet
+    // but if all processed matched all entries length,
+    // it will have nothing more to process
+    if (cache.processed >= allEntries.length) {
+      cache.processed = allEntries.length;
       return "Nothing more to process";
     }
 
-    // if entry for this index has already been processed
-    if (pathCache.processedEntries.length >= pathCache.currentIndex) {
-      const entry = pathCache.processedEntries[pathCache.currentIndex];
-      pathCache.currentIndex++;
-
-      return entry;
-    }
-
     /** @type {ImageryDirent} */
-    const currentEntry = pathCache.unprocessedEntries[pathCache.currentIndex];
-    if (!currentEntry) return null;
+    const currentEntry = allEntries[cache.processed];
+    if (!currentEntry) throw Error(`Cannot find entry to process`);
 
     const entryPath = join(this.#activePath, currentEntry.name);
+    cache.processed++;
 
     if (currentEntry.isFile) {
       if (!currentEntry.isCompatibleFile) return null;
 
-      this.#pushNewEntry(
-        pathCache = pathCache,
-        index = pathCache.currentIndex,
-        title = currentEntry.name,
-        destination = this.#activePath,
-        isMedia = true,
-        path = entryPath,
-        thumbnailType = isVideoFile(entryPath) ? FileGroup.VIDEO : FileGroup.IMAGE,
-        thumbnailPath = entryPath,
+      return this.#pushNewEntry(
+        cache, // cache
+        cache.currentIndex, // index
+        currentEntry.name, // isMedia
+        this.#activePath, // destination
+        true, // title
+        entryPath, // path
+        isVideoFile(entryPath) ? FileGroup.VIDEO : FileGroup.IMAGE, // thumbnailType
+        entryPath, // thumbnailPath
       );
     }
 
@@ -437,13 +460,13 @@ class ImageryCache {
           );
 
           return this.#pushNewEntry(
-            pathCache = pathCache,
-            index = pathCache.currentIndex,
-            isMedia = false,
-            destination = this.#activePath,
-            title = currentEntry.name,
-            path = firstValidParent || currentFolderPath,
-            thumbnailType = isVideoFile(thumbnailPath) ? FileGroup.VIDEO : FileGroup.IMAGE,
+            cache, // cache
+            cache.currentIndex, // index
+            currentEntry.name, // title
+            this.#activePath, // destination
+            false, // isMedia
+            firstValidParent || currentFolderPath, // path
+            isVideoFile(thumbnailPath) ? FileGroup.VIDEO : FileGroup.IMAGE, // thumbnailType
             thumbnailPath
           );
         }
