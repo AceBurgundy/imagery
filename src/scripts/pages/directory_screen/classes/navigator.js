@@ -99,18 +99,18 @@ export class Navigator {
 
     if (event.key === 'ArrowUp') {
       this.setInitialActiveCard();
-      if (this.activeCardIndex < this.manager.numberOfCardsToAddOnScroll) return;
+      if (this.activeCardIndex < this.manager.rowCardCount) return;
 
-      this.activeCardIndex -= this.manager.numberOfCardsToAddOnScroll;
+      this.activeCardIndex -= this.manager.rowCardCount;
       this.moveActiveCard();
       return;
     }
 
     if (event.key === 'ArrowDown') {
       this.setInitialActiveCard();
-      if (this.activeCardIndex + this.manager.numberOfCardsToAddOnScroll >= this.box.children.length) return;
+      if (this.activeCardIndex + this.manager.rowCardCount >= this.box.children.length) return;
 
-      this.activeCardIndex += this.manager.numberOfCardsToAddOnScroll;
+      this.activeCardIndex += this.manager.rowCardCount;
       this.moveActiveCard();
       return;
     }
