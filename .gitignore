@@ -91,3 +91,6 @@ typings/
 # Electron-Forge
 out/
 imagery.sqlite3
+package-lock.json
+package-lock.json
+yarn.lock
