@@ -1,5 +1,6 @@
-import { pathBasename, print } from '../../../utilities/frontend/handles.js';
+import { placeholderImage, print } from '../../../utilities/frontend/handles.js';
 import history from '../../../utilities/frontend/history.js';
+import { basename } from '../../../utilities/frontend/node-path.js';
 import { Toast } from '../components/toast.js';
 
 /**
@@ -13,9 +14,7 @@ export class DirectoryManager {
    * @property {string} destination - The destination path for the entry.
    * @property {boolean} isMedia - Indicates if the entry is media.
    * @property {string} path - The file path of the entry.
-   * @property {string} thumbnailType - The type of thumbnail (e.g., 'image', 'video').
    * @property {string} thumbnailPath - The path to the thumbnail.
-   * @property {string} cachedThumbnail - The processed thumbnail.
    * @property {string} size - The file size in bytes.
    * @property {string} dateCreated - The date when the file was created.
    * @property {string} dateModified - The date when the file was last modified.
@@ -38,7 +37,19 @@ export class DirectoryManager {
    * @private
    * @type {number}
    */
+  boxHeight;
+
+  /**
+   * @private
+   * @type {number}
+   */
   cardHeight;
+
+  /**
+   * @private
+   * @type {string}
+   */
+  defaultImage
 
   /**
    * Initializes the DirectoryManager.
@@ -73,11 +84,20 @@ export class DirectoryManager {
                         parseFloat(this.bodyStyle.gap) +
                         parseFloat(this.bodyStyle.paddingBottom)
 
-    const boxHeight = window.innerHeight - heightTaken;
-    this.box.style.height = `${parseInt(boxHeight)}px`;
+    this.boxHeight = window.innerHeight - heightTaken;
+    this.box.style.height = `${parseInt(this.boxHeight)}px`;
 
-    const boxHeightWithGap = boxHeight - (parseInt(this.boxStyle.rowGap) * 2);
-    this.cardHeight = Math.round(boxHeightWithGap / 3);
+    const boxHeightWithGap = this.boxHeight - (parseInt(this.boxStyle.rowGap) * 2);
+    this.cardHeight ??= Math.round(boxHeightWithGap / 3);
+    this.cardHeight = isNaN(this.cardHeight) ? 198 : this.cardHeight;
+
+    this.box.style.gridAutoRows = `${this.cardHeight}px`;
+
+    // Math.ceil includes cards which are cut off by the overflow
+    const columnCardCount = Math.ceil(this.boxHeight / this.cardHeight);
+    this.rowCardCount = this.boxStyle.gridTemplateColumns.split(' ').length;
+
+    this.initialCardCount = this.rowCardCount * columnCardCount;
   }
 
   /**
@@ -86,13 +106,14 @@ export class DirectoryManager {
    * @param {string} path - The path to the directory.
    * @param {boolean} [save=false] - Whether to save the path to history.
    */
-  open(path, save = false) {
+  async open(path, save = false) {
+    this.defaultImage ??= await placeholderImage();
     if (save) history.visit(path);
 
     this.box.innerHTML = '';
     this.box.dataset.path = path;
 
-    pathBasename(path)
+    basename(path)
       .then(basename => {
         const title = document.getElementById("directory-name");
         const root = basename === '' && path.slice(-1) === '\\';
@@ -100,7 +121,6 @@ export class DirectoryManager {
         title.textContent = root ? path.replace('\\', '') : basename
       })
 
-    this.rowCardCount = this.boxStyle.gridTemplateColumns.split(' ').length;
     this.addContent();
   }
 
@@ -118,7 +138,7 @@ export class DirectoryManager {
     }
 
     // prepares the entries for the directory
-    await window.ipcRenderer.invoke('prepare-directory-contents', this.box.dataset.path);
+    const entriesLength = await window.ipcRenderer.invoke('prepare-directory-contents', this.box.dataset.path);
 
     // after all entries are prepared,
     // a loop is used to make sure cards are added one by one,
@@ -131,25 +151,37 @@ export class DirectoryManager {
     // Only 1 card is being added and processed at a time.
     //
     // Speed will less likely be an issue as the backend have caching mechanisms in place
-    while (true) {
-      try {
-        /** @type {ImageryEntry|null|String} */
-        const content = await window.ipcRenderer.invoke('next-content');
+    const batchSize = 5;
+    let processed = 0;
 
-        if (!content) {
-          continue;
-        }
+    while (processed < entriesLength) {
+      const batch = [];
 
-        if (typeof content === 'string') {
-          Toast.broadcast(content);
-          return;
-        }
-
-        await this.processEntry(content);
-      } catch (error) {
-        // print error but continue the loop
-        print(error.message);
+      for (let index = 0; index < batchSize && processed < entriesLength; index++, processed++) {
+        batch.push(
+          // index <= this.initialCardCount: include thumbnail for cards in initial card count
+          this.#getNextContent(processed, processed <= this.initialCardCount)
+        );
       }
+
+      // Wait for all cards to show before loading next batch
+      await Promise.all(batch);
+    }
+  }
+
+  async #getNextContent(index, withThumbnail) {
+    try {
+      /** @type {ImageryEntry|null|String} */
+      const content = await window.ipcRenderer.invoke('next-content', index);
+
+      if (!content) {
+        return;
+      }
+
+      this.processEntry(content, withThumbnail);
+    } catch (error) {
+      // print error but continue the loop
+      print(error.message);
     }
   }
 
@@ -173,44 +205,38 @@ export class DirectoryManager {
    * Process a directory entry and add it to the container.
    *
    * @param {ImageryEntry} content - The directory entry to process.
+   * @param {bool} withThumbnail - Load thumbnail too.
    */
-  async processEntry(content) {
+  async processEntry(content, withThumbnail) {
     const {
       index,
       title,
       destination,
       isMedia,
       path,
-      thumbnailType,
       thumbnailPath,
-      cachedThumbnail,
       size,
       dateCreated,
       dateModified,
       dateTaken
     } = content;
 
-    let height = '';
-
-    if (typeof this.cardHeight === 'number') {
-      height = `style="height: ${this.cardHeight}px"`;
-    }
-
     const isActive = index === '0' ? 'active' : '';
     const cellType = isMedia ? 'is-media' : 'is-folder';
 
     const card = /* html */ `
       <div
-        ${height}
+        style="height: ${this.cardHeight}px"
         class="directory-cell ${cellType} ${isActive}"
         data-title="${title}"
         data-path="${path}"
         data-index="${index}"
         data-size="${size}"
+        data-thumbnail-path="${thumbnailPath}"
         data-date-created="${dateCreated}"
         data-date-modified="${dateModified}"
         data-date-taken="${dateTaken}">
-        <img id="directory-content-${index}-image" class="directory-cell__image" src="${await this.placeholderImage()}">
+        <img id="directory-content-${index}-image" class="directory-cell__image" src="${this.defaultImage}">
         <p>${title}</p>
       </div>
     `;
@@ -220,51 +246,61 @@ export class DirectoryManager {
     }
 
     this.box.insertAdjacentHTML('beforeend', card);
-    this.loadThumbnail(cachedThumbnail, thumbnailPath, thumbnailType, index);
+    if (withThumbnail) this.loadThumbnail(thumbnailPath, index);
   }
 
   /**
    * Checks if the thumbnail works properly. If not, it will use the placeholderImage;
-   * @param {string} cachedThumbnail - The cached thumbnail file
    * @param {string} thumbnailPath - The path to the thumbnail
-   * @param {string} thumbnailType - The type of the thumbnail
    * @param {number} cardIndex - The index of the image element to review
    */
-  async loadThumbnail(cachedThumbnail, thumbnailPath, thumbnailType, cardIndex) {
+  async loadThumbnail(thumbnailPath, cardIndex) {
     const cardImage = document.getElementById(`directory-content-${cardIndex}-image`);
 
     if (!cardImage) {
       return;
     }
 
-    const defaultImage = await this.placeholderImage();
+    // even if a path is an image, it is still necessary to get their thumbnail,
+    // to resize them into an easier to load image,
+    // as currently, using the image file itself as the thumbnail
+    // takes too much time to load especially for 4k or HD images.
+    cardImage.classList.add("loaded");
 
-    // if cache thumbnail is not empty
-    // use the cached thumbnail
-    // else if thumbnail path is empty,
-    // use default image
-    // else if thumbnail is video (thumbnail path is not empty)
-    // extract the thumbnail from the video
-    // else use the thumbnail as is (thumbnail path is image)
-    let thumbnail = cachedThumbnail.trim() !== ''
-      ? cachedThumbnail
-      : thumbnailPath.trim() === ''
-        ? defaultImage
-        : thumbnailType === 'video'
-          ? await window.ipcRenderer.invoke('get-thumbnail', thumbnailPath) ?? defaultImage
-          : thumbnailPath
-
-    cardImage.src = thumbnail;
-    cardImage.onerror = () => cardImage.src = defaultImage;
+    cardImage.src = await window.ipcRenderer.invoke('get-thumbnail', thumbnailPath) ?? this.defaultImage;
+    cardImage.onerror = () => cardImage.src = this.defaultImage;
   }
 
   /**
-   * @private
-   * Provide a placeholder image.
-   *
-   * @returns {Promise<string>} A promise that resolves to the placeholder image path.
+   * Loads a cards index by its thumbnail
    */
-  async placeholderImage() {
-    return await window.ipcRenderer.invoke('default-image');
+  loadThumbnailByScroll() {
+    const boxBound = this.box.getBoundingClientRect();
+
+    [...this.box.children].forEach(card => {
+      // skips card with loaded thumbnail
+      if (card.firstElementChild.classList.contains("loaded") === true) return;
+
+      // Get card's position relative to viewport
+      const cardBound = card.getBoundingClientRect();
+
+      // Check if card is inside `.box`
+      if (cardBound.top <= boxBound.bottom + 300) {
+        this.loadThumbnail(card.dataset.thumbnailPath, card.dataset.index);
+      }
+    });
+  }
+  /**
+   * @returns {[{ title: String, path: String }]} returns the list of all media titles
+   * - Since the media titles end in a playable format, it can be used by MediaViewer
+   */
+  get allMedia() {
+    return [...this.box.querySelectorAll('[class*="is-media"]')]
+      .map(element => {
+        return {
+          title: element.dataset.title,
+          path: element.dataset.path
+        }
+      });
   }
 }
