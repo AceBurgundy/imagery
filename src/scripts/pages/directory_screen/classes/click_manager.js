@@ -18,17 +18,17 @@ export class ClickManager {
    * @param {Navigator} navigator - An instance of Navigator.
    */
   control(event, navigator, manager) {
+    if (MediaViewer.hiddenOrNone() === false) return;
+
     const card = event.target.closest('.directory-cell');
     if (!card) return;
 
-    try {
-    // attempt to open as media
-      MediaViewer.open(card);
-    } catch (error) {
-      // open as folder
-      navigator.reset();
-      history.visit(card.dataset.path);
-      manager.open(card.dataset.path);
-    }
+    MediaViewer.open(card, manager.allMedia)
+      .catch(_ => {
+        // open as folder
+        navigator.reset();
+        history.visit(card.dataset.path);
+        manager.open(card.dataset.path);
+      });
   }
 }
