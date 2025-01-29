@@ -35,12 +35,25 @@ export class DirectoryScreen extends Component {
       const wheel = new MouseWheelManager();
       const touchpad = new TouchManager();
 
-      window.onresize = () => manager.updateBox(box);
+      window.addEventListener("resize", async () =>
+        manager.updateBox(box)
+      );
 
-      window.onclick = event => click.control(event, navigator, manager);
-      window.onwheel = event => wheel.control(event, manager);
-      window.onkeydown = event => keyboard.control(event, box, navigator);
-      window.ontouchmove = event => touchpad.control(event, manager);
+      window.addEventListener("click", event =>
+        click.control(event, navigator, manager)
+      );
+
+      window.addEventListener("wheel", event => {
+        wheel.control(event, manager)
+      }, { passive: true });
+
+      window.addEventListener("keydown", event =>
+        keyboard.control(event, box, navigator)
+      );
+
+      window.addEventListener("touchmove", event =>
+        touchpad.control(event, manager)
+      );
 
       manager.open(history.currentPath)
     };
