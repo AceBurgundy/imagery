@@ -1,3 +1,4 @@
+import { MediaViewer } from '../../media_viewer_screen/media-viewer.js';
 import { DirectoryManager } from './directory_manager.js';
 
 /**
@@ -14,10 +15,7 @@ export class TouchManager {
    * @param {DirectoryManager} manager - The directory manager for handling directory operations.
    */
   control(event, manager) {
-    if (document.body.lastElementChild.tagName === 'DIALOG' || event.touches.length !== 2) {
-      event.preventDefault();
-      return;
-    }
+    if (MediaViewer.hiddenOrNone() === false) return;
 
     const scrollingUp = event.touches[0].clientY < event.touches[0].previousY;
     const scrollingDown = !scrollingUp;
