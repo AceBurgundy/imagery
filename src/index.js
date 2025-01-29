@@ -72,9 +72,14 @@ app.on('ready', () => {
 
   // Dynamically require scripts if necessary
   const directory = join(__dirname, './scripts/utilities/views/directory.js');
+  const handlers = join(__dirname, './scripts/utilities/views/handlers.js');
 
   if (existsSync(directory) === true) {
     require(directory);
+  }
+
+  if (existsSync(handlers) === true) {
+    require(handlers);
   }
 
   createWindow();
