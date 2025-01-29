@@ -1,30 +1,24 @@
-export function print(...message) {
-  window.ipcRenderer.invoke('print',
-    message.map(message =>
-        typeof message === "object"
-          ? JSON.stringify(message, null, 2)
-          : Array.isArray(message)
-            ? message.join(', ')
-            : message.toString()
-    )
-  );
-}
+/**
+ * Prints messages from frontend to the console
+ * @param  {...any} message - An array of any type of argument
+ * - If an element is of type "object", it will be stringified and beautified
+ * - If an element is an array, it will be joined by ', '
+ * - Else all other types are simply logged by their toString() value
+ */
+export const print = (...message) => window.ipcRenderer.invoke('print',
+  message.map(message => typeof message === "object"
+    ? JSON.stringify(message, null, 2)
+    : Array.isArray(message)
+      ? message.join(', ')
+      : message.toString()
+  )
+);
 
 /**
- * Joins strings with '\'
- * @param {string[]} paths - Array of strings to be joined
- * @returns {Promise<string>}
+ * Provides the default placeholder image.
+ * @returns {Promise<string>} A promise that resolves to the placeholder image path.
  */
-export async function pathJoin(...paths) {
-  return await window.ipcRenderer.invoke('join-paths', paths)
-}
+export const placeholderImage = async () => await window
+  .ipcRenderer
+  .invoke('default-image');
 
-/**
- * @param {string} path - The path whose basename to be extracted from
- * @returns {Promise<string>}
- */
-export async function pathBasename(path) {
-  console.log(`received path ${path}`);
-
-  return await window.ipcRenderer.invoke('path-basename', path)
-}
