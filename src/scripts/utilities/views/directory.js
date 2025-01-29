@@ -13,7 +13,7 @@ ipcMain.handle('prepare-directory-contents', async (event, path) => {
     throw new Error(`Folder path does not exist`);
   }
 
-  await imageryCache.prepareEntries(path);
+  return await imageryCache.prepareEntries(path);
 });
 
 /**
@@ -23,9 +23,7 @@ ipcMain.handle('prepare-directory-contents', async (event, path) => {
  * @property {string} destination - The destination path for the entry.
  * @property {boolean} isMedia - Indicates if the entry is media.
  * @property {string} path - The file path of the entry.
- * @property {string} thumbnailType - The type of thumbnail (e.g., 'image', 'video').
  * @property {string} thumbnailPath - The path to the thumbnail.
- * @property {string} cachedThumbnail - The processed thumbnail.
  * @property {string} size - The file size in bytes.
  * @property {string} dateCreated - The date when the file was created.
  * @property {string} dateModified - The date when the file was last modified.
@@ -34,19 +32,11 @@ ipcMain.handle('prepare-directory-contents', async (event, path) => {
 
 /**
  * Retrieves the next content from the imagery cache.
+ * @param {number} index - The next content index requested
  * @returns {Promise<ImageryEntry|null>} - The next content in the imagery cache.
  */
-ipcMain.handle('next-content', async _ =>
-  imageryCache.next()
-);
-
-/**
- * Cache a folders entries.
- * @param {string} path - The path to the directory to process.
- * @throws {Error} - Throws an error if the folder path does not exist.
- */
-ipcMain.handle('cache-directory-contents', async (event, path) =>
-  imageryCache.save(path)
+ipcMain.handle('next-content', async (event, index) =>
+  await imageryCache.next(index)
 );
 
 /**
