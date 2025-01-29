@@ -1,47 +1,59 @@
-dialog {
+#media-viewer {
 	border: none;
 	outline: none;
 	top: 50%;
 	left: 50%;
-	z-index: 1;
 	width: 100%;
 	height: 100%;
-	background-color: #ffffff00;
+	position: fixed;
+	background-color: #191919;
+	z-index: 10;
 }
 
-dialog[data-type="image"] {
+#media-viewer[data-type="image"] {
   place-items: center;
 }
 
-dialog > img {
+#media-viewer > img {
   height: 100%;
+	background-color: #191919;
 }
 
-dialog > video {
-  width: 100%;
+#media-viewer > video {
+	width: 100%;
 	height: 100%;
+	background-color: #191919;
 }
 
-dialog::backdrop {
+#media-viewer-title {
 	position: fixed;
-	background: #222222;
-	z-index: 1;
-	/* backdrop-filter: blur(10px); */
-	width: 100vw;
-	height: 100vh;
+	left: 0;
+	top: 0;
+	margin: 2rem;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.495);
+  padding: 5px 10px;
+  border-radius: 0.7rem;
+  font-size: 2rem;
+  z-index: 2;
+  transition: 250ms ease;
+	opacity: 1;
+}
+
+#media-viewer-title.hide {
+	opacity: 0;
 }
 
 /* animations */
 
-/* opening a dialog */
-dialog[open],
-#backdrop {
-	animation: fade-in 250ms forwards;
+/* opening a #media-viewer */
+#media-viewer[open] {
+	animation: fade-in 150ms forwards;
 }
 
-/* closing a dialog */
-dialog[open].close-animate {
-	animation: fade-out 250ms forwards;
+/* closing a #media-viewer */
+#media-viewer[open].close-animate {
+	animation: fade-out 150ms forwards;
 }
 
 @keyframes fade-in {
