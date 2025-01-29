@@ -2,6 +2,7 @@ import { MediaViewer } from '../../media_viewer_screen/media-viewer.js';
 import history from '../../../utilities/frontend/history.js';
 import { DirectoryManager } from './directory_manager.js';
 import { Toast } from '../components/toast.js';
+import { print } from '../../../utilities/frontend/handles.js';
 
 export class Navigator {
   /**
@@ -35,11 +36,14 @@ export class Navigator {
   /**
    * @private
    * Sets the initial active card if none is currently active.
+   * @returns {boolean} true if card initial card was set, false if initial card already been set.
    */
   setInitialActiveCard = () => {
-    if (this.getActiveCard() === null) {
-      this.box.children[0].classList.add('active');
-    }
+    if (this.getActiveCard() !== null) return false;
+    this.box.children[0].classList.add('active');
+    this.activeCardIndex = 0;
+
+    return true;
   };
 
   /**
@@ -48,7 +52,36 @@ export class Navigator {
    */
   moveActiveCard = () => {
     this.getActiveCard()?.classList.remove('active');
-    this.box.children[this.activeCardIndex]?.classList.add('active');
+    const activeCard = this.box.children[this.activeCardIndex];
+
+    // No more active card
+    if (!activeCard) return
+
+    activeCard.classList.add('active');
+
+    // Get bounding rectangles
+    const boxRectangle = this.box.getBoundingClientRect();
+    const cardRectangle = activeCard.getBoundingClientRect();
+
+    // Check if the card is out of view above
+    if (cardRectangle.top < boxRectangle.top) {
+      this.box.scrollBy({ top: cardRectangle.top - boxRectangle.top, behavior: 'smooth' });
+    }
+
+    // Check if the card is out of view below
+    else if (cardRectangle.bottom > boxRectangle.bottom) {
+      const bodyPaddingBottom = Math.floor(
+        parseFloat(this.manager.bodyStyle.paddingBottom)
+      );
+
+      const bodyGap = Math.floor(
+        parseFloat(this.manager.bodyStyle.gap)
+      );
+
+      const cardTop = cardRectangle.bottom + bodyPaddingBottom + bodyGap;
+
+      this.box.scrollBy({ top: cardTop - boxRectangle.bottom, behavior: 'smooth' });
+    }
   };
 
   /**
@@ -86,19 +119,28 @@ export class Navigator {
    * Handles navigation between cards using keyboard events.
    * @param {KeyboardEvent} event - The keyboard event triggering navigation.
    */
-  navigateCards = (event) => {
+  navigateCards = async event => {
     if (event.key === 'Enter') {
-      try {
-        const card = this.getActiveCard();
-        if (card) MediaViewer.open(card);
-      } catch (error) {
+      const card = this.getActiveCard();
+
+      // card is missing
+      if (!card) return;
+
+      if (card.classList.contains("is-folder") === true) {
         this.reset()
-        this.manager.open(card.dataset.path, true);
+
+        // Open next directory
+        await this.manager.open(card.dataset.path, true);
+        return;
+      }
+
+      if (card.classList.contains("is-media") === true) {
+        await MediaViewer.open(card, this.manager.allMedia);
       }
     }
 
     if (event.key === 'ArrowUp') {
-      this.setInitialActiveCard();
+      if (this.setInitialActiveCard() === true) return;
       if (this.activeCardIndex < this.manager.rowCardCount) return;
 
       this.activeCardIndex -= this.manager.rowCardCount;
@@ -107,7 +149,7 @@ export class Navigator {
     }
 
     if (event.key === 'ArrowDown') {
-      this.setInitialActiveCard();
+      if (this.setInitialActiveCard() === true) return;
       if (this.activeCardIndex + this.manager.rowCardCount >= this.box.children.length) return;
 
       this.activeCardIndex += this.manager.rowCardCount;
@@ -116,7 +158,7 @@ export class Navigator {
     }
 
     if (event.key === 'ArrowLeft') {
-      this.setInitialActiveCard();
+      if (this.setInitialActiveCard() === true) return;
       if (this.activeCardIndex === 0) return;
 
       this.activeCardIndex--;
@@ -125,7 +167,7 @@ export class Navigator {
     }
 
     if (event.key === 'ArrowRight') {
-      this.setInitialActiveCard();
+      if (this.setInitialActiveCard() === true) return;
       if (this.activeCardIndex === this.box.children.length - 1) return;
 
       this.activeCardIndex++;
