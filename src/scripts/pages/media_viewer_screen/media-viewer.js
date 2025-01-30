@@ -7,7 +7,6 @@ import { Toast } from '../directory_screen/components/toast.js';
  * Represents a media viewer component that can display images and videos.
  */
 export class MediaViewer extends Component {
-
   /**
    * The path to the first media title and path to be shown
    * @type {{ title: String, path: String }}
@@ -39,25 +38,25 @@ export class MediaViewer extends Component {
    * @type {HTMLDivElement}
    * @private
    */
-  static #viewer = document.getElementById("media-viewer");
+  static #viewer = document.getElementById('media-viewer');
 
   /**
    * @type {HTMLVideoElement}
    * @private
    */
-  static #video = MediaViewer.#viewer.querySelector("video");
+  static #video = MediaViewer.#viewer.querySelector('video');
 
   /**
    * @type {HTMLDivElement}
    * @private
    */
-  static #title = MediaViewer.#viewer.querySelector("#media-viewer-title");
+  static #title = MediaViewer.#viewer.querySelector('#media-viewer-title');
 
   /**
    * @type {HTMLImageElement}
    * @private
    */
-  static #image = MediaViewer.#viewer.querySelector("img");
+  static #image = MediaViewer.#viewer.querySelector('img');
 
   /**
    * @type {boolean}
@@ -76,21 +75,21 @@ export class MediaViewer extends Component {
    * @type {string}
    * @private
    */
-  static #ESCAPE_KEY = "Escape";
+  static #ESCAPE_KEY = 'Escape';
 
   /**
    * Left arrow key constant.
    * @type {string}
    * @private
    */
-  static #LEFT_KEY = "ArrowLeft";
+  static #LEFT_KEY = 'ArrowLeft';
 
   /**
    * Right arrow key constant.
    * @type {string}
    * @private
    */
-  static #RIGHT_KEY = "ArrowRight";
+  static #RIGHT_KEY = 'ArrowRight';
 
   /**
    * Seek time constant.
@@ -105,8 +104,8 @@ export class MediaViewer extends Component {
    * @param {[{ title: String, path: String }]} medias - The list of all media's titles
    */
   static async open(card, medias) {
-    if (card.classList.contains("is-media") === false) throw new Error();
-    window.ipcRenderer.invoke("on-fullscreen");
+    if (card.classList.contains('is-media') === false) throw new Error();
+    window.ipcRenderer.invoke('on-fullscreen');
     MediaViewer.#video.disablePictureInPicture = false;
 
     MediaViewer.#medias = medias;
@@ -118,7 +117,7 @@ export class MediaViewer extends Component {
 
     /** @type {string[]} */
     MediaViewer.#index = MediaViewer.#medias.findIndex(
-      (media) => media.title === MediaViewer.#initialMedia.title
+        media => media.title === MediaViewer.#initialMedia.title
     );
 
     MediaViewer.#show();
@@ -130,7 +129,7 @@ export class MediaViewer extends Component {
    * @private
    */
   static #show() {
-    document.getElementById("media-viewer").classList.remove("close-animate");
+    document.getElementById('media-viewer').classList.remove('close-animate');
   }
 
   /**
@@ -138,7 +137,7 @@ export class MediaViewer extends Component {
    * @returns {boolean} True if the viewer is hidden.
    */
   static hidden() {
-    return document.getElementById("media-viewer").classList.contains("close-animate");
+    return document.getElementById('media-viewer').classList.contains('close-animate');
   }
 
   /**
@@ -146,7 +145,7 @@ export class MediaViewer extends Component {
    * @private
    */
   static #hide() {
-    document.getElementById("media-viewer").classList.add("close-animate");
+    document.getElementById('media-viewer').classList.add('close-animate');
   }
 
   /**
@@ -159,7 +158,7 @@ export class MediaViewer extends Component {
     const error = event.target.error;
 
     if (event.target.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
-      return "Video not found, unsupported or cannot be read";
+      return 'Video not found, unsupported or cannot be read';
     }
 
     if (!error) {
@@ -171,16 +170,16 @@ export class MediaViewer extends Component {
         break;
 
       case MediaError.MEDIA_ERR_NETWORK:
-        return "A network error occurred while fetching the media.";
+        return 'A network error occurred while fetching the media.';
 
       case MediaError.MEDIA_ERR_DECODE:
-        return "An error occurred while decoding the media.";
+        return 'An error occurred while decoding the media.';
 
       case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-        return "The media format is not supported.";
+        return 'The media format is not supported.';
 
       default:
-        return "An unknown media error occurred.";
+        return 'An unknown media error occurred.';
     }
   }
 
@@ -213,14 +212,14 @@ export class MediaViewer extends Component {
    */
   static #isVideoFile(extension) {
     return [
-      ".mp4",
-      ".mkv",
-      ".avi",
-      ".mov",
-      ".flv",
-      ".wmv",
-      ".webm",
-      ".ts",
+      '.mp4',
+      '.mkv',
+      '.avi',
+      '.mov',
+      '.flv',
+      '.wmv',
+      '.webm',
+      '.ts'
     ].includes(extension);
   }
 
@@ -231,8 +230,8 @@ export class MediaViewer extends Component {
    */
   static #updateTitle(titleText) {
     MediaViewer.#title.textContent = titleText;
-    MediaViewer.#title.classList.remove("hide");
-    setTimeout(() => MediaViewer.#title.classList.add("hide"), 2000);
+    MediaViewer.#title.classList.remove('hide');
+    setTimeout(() => MediaViewer.#title.classList.add('hide'), 2000);
   }
 
   /**
@@ -241,9 +240,9 @@ export class MediaViewer extends Component {
    * @private
    */
   static #updateViewerType(isVideo) {
-    MediaViewer.#viewer.dataset.type = isVideo ? "video" : "image";
-    MediaViewer.#video.style.display = isVideo ? "block" : "none";
-    MediaViewer.#image.style.display = isVideo ? "none" : "block";
+    MediaViewer.#viewer.dataset.type = isVideo ? 'video' : 'image';
+    MediaViewer.#video.style.display = isVideo ? 'block' : 'none';
+    MediaViewer.#image.style.display = isVideo ? 'none' : 'block';
   }
 
   /**
@@ -253,17 +252,17 @@ export class MediaViewer extends Component {
    */
   static #setupVideo(path) {
     MediaViewer.#video.src = path;
-    MediaViewer.#image.src = "";
+    MediaViewer.#image.src = '';
 
     MediaViewer.#video.focus();
-    MediaViewer.#video.onerror = (error) => MediaViewer.#handleVideoError(error);
+    MediaViewer.#video.onerror = error => MediaViewer.#handleVideoError(error);
 
     // Autoplay the video if the autoplay variable is true
     if (MediaViewer.#autoplay) {
       MediaViewer.#paused = false;
 
-      MediaViewer.#video.play().catch((error) => {
-        console.error("Autoplay failed:", error);
+      MediaViewer.#video.play().catch(error => {
+        console.error('Autoplay failed:', error);
       });
     }
   }
@@ -285,7 +284,7 @@ export class MediaViewer extends Component {
    */
   static #setupImage(path) {
     MediaViewer.#image.src = path;
-    MediaViewer.#video.src = "";
+    MediaViewer.#video.src = '';
 
     MediaViewer.#image.onerror = async () => {
       MediaViewer.#image.src = await placeholderImage();
@@ -295,41 +294,41 @@ export class MediaViewer extends Component {
   constructor() {
     super();
 
-    css(import.meta, ["./styles/media-viewer.css"]);
+    css(import.meta, ['./styles/media-viewer.css']);
 
     this.scripts = async () => {
-
-      MediaViewer.#video.onenterpictureinpicture = (_) => {
+      MediaViewer.#video.onenterpictureinpicture = _ => {
         MediaViewer.#hide();
       };
 
-      MediaViewer.#video.onleavepictureinpicture = (_) => {
+      MediaViewer.#video.onleavepictureinpicture = _ => {
         MediaViewer.#show();
       };
 
-      document.onfullscreenchange = (event) => {
+      document.onfullscreenchange = event => {
         if (document.fullscreenElement == null) {
-          window.ipcRenderer.invoke("off-fullscreen");
+          window.ipcRenderer.invoke('off-fullscreen');
         }
       };
 
       let timeout;
 
-      window.addEventListener("mousemove", (event) => {
+      window.addEventListener('mousemove', event => {
         if (MediaViewer.hidden() === true) return;
 
         clearTimeout(timeout);
-        MediaViewer.#title.classList.remove("hide");
+        MediaViewer.#title.classList.remove('hide');
 
-        timeout = setTimeout(() => MediaViewer.#title.classList.add("hide"), 2000);
+        timeout = setTimeout(() => MediaViewer.#title.classList.add('hide'), 2000);
       });
 
-      let fired = false;
+      MediaViewer.#video.addEventListener('keydown', event => {
+        // Make sure this event only works if media viewer is not hidden,
+        // or if current displayed media is video
+        if (MediaViewer.hidden() === true) return;
+        if (MediaViewer.#isVideo) return;
 
-      window.addEventListener("keyup", (_) => (fired = false));
-
-      MediaViewer.#video.addEventListener("keydown", (event) => {
-        if (event.key === " ") {
+        if (event.key === ' ') {
           // No need to call video.play() or video.pause()
           // as video already handles it for us.
           // We only need to manage the next autoplay
@@ -339,7 +338,8 @@ export class MediaViewer extends Component {
           MediaViewer.#autoplay = MediaViewer.#video.paused ? true : false;
         }
 
-        const eitherNavigation = event.key === MediaViewer.#LEFT_KEY || event.key === MediaViewer.#RIGHT_KEY;
+        const eitherNavigation = event.key === MediaViewer.#LEFT_KEY ||
+            event.key === MediaViewer.#RIGHT_KEY;
 
         // Other events below must require the control key being held
         if (event.ctrlKey && eitherNavigation === true) {
@@ -349,63 +349,67 @@ export class MediaViewer extends Component {
           // Reset autoplay to true when navigating to the next/previous video
           if (!MediaViewer.#paused) MediaViewer.#autoplay = true;
 
-          const index = MediaViewer.#index;
+          let index = MediaViewer.#index;
           const medias = MediaViewer.#medias;
 
           // Previous video
           if (event.key === MediaViewer.#LEFT_KEY) {
             index = (index - 1 + medias.length) % medias.length;
             MediaViewer.#updateViewer(medias[index]);
+            return;
           }
 
           // Next video
-          else if (event.key === MediaViewer.#RIGHT_KEY) {
+          if (event.key === MediaViewer.#RIGHT_KEY) {
             index = (index + 1) % medias.length;
             MediaViewer.#updateViewer(medias[index]);
           }
         }
       });
 
-      window.addEventListener("keydown", (event) => {
+      let fired = false;
+
+      window.addEventListener('keyup', _ => fired = false);
+
+      window.addEventListener('keydown', event => {
         if (event.repeat) return;
+        if (fired) return;
 
-        if (!fired) {
-          fired = true;
+        fired = true;
 
-          // Since there is now multiple keydown events delegation,
-          // we have to make sure all code here will not work if viewer
-          // does is hidden
-          if (MediaViewer.hidden() === true) return;
+        // Since there is now multiple keydown events delegation,
+        // we have to make sure all code here will not work if viewer
+        // does is hidden
+        if (MediaViewer.hidden() === true) return;
 
-          if (event.key === MediaViewer.#ESCAPE_KEY) {
-            window.ipcRenderer.invoke("off-fullscreen");
+        if (event.key === MediaViewer.#ESCAPE_KEY) {
+          window.ipcRenderer.invoke('off-fullscreen');
 
-            setTimeout(() => MediaViewer.#hide(), 200);
+          setTimeout(() => MediaViewer.#hide(), 200);
+          return;
+        }
+
+        let index = MediaViewer.#index;
+        const medias = MediaViewer.#medias;
+
+        if (!MediaViewer.#isVideo) {
+          // For image navigation
+          if (event.key === MediaViewer.#LEFT_KEY) {
+            index = (index - 1 + medias.length) % medias.length;
+            MediaViewer.#updateViewer(medias[index]);
             return;
           }
 
-          const index = MediaViewer.#index;
-          const medias = MediaViewer.#medias;
-
-          if (!MediaViewer.#isVideo) {
-            // For image navigation
-            if (event.key === MediaViewer.#LEFT_KEY) {
-              index = (index - 1 + medias.length) % medias.length;
-              MediaViewer.#updateViewer(medias[index]);
-            }
-
-            else if (event.key === MediaViewer.#RIGHT_KEY) {
-              index = (index + 1) % medias.length;
-              MediaViewer.#updateViewer(medias[index]);
-            }
-
+          if (event.key === MediaViewer.#RIGHT_KEY) {
+            index = (index + 1) % medias.length;
+            MediaViewer.#updateViewer(medias[index]);
             return;
           }
         }
       });
     };
 
-    this.template = /*html*/ `
+    this.template = /* html*/ `
       <div id="media-viewer" open>
         <video controls class="close-animate" style="display: none;"></video>
         <img style="display: none;" />
