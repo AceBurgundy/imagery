@@ -5,9 +5,9 @@
  * @param path the path to evaluate.
  * @throws {TypeError} if `path` is not a string.
  */
-export const extname = async (path) => await window
-  .ipcRenderer
-  .invoke("path-extname", path)
+export const extname = async path => await window
+    .ipcRenderer
+    .invoke('path-extname', path);
 
 /**
  * Join all arguments together and normalize the resulting path.
@@ -16,8 +16,8 @@ export const extname = async (path) => await window
  * @throws {TypeError} if any of the path segments is not a string.
  */
 export const join = async (...paths) => await window
-  .ipcRenderer
-  .invoke("join-paths", paths)
+    .ipcRenderer
+    .invoke('join-paths', paths);
 
 /**
  * Return the last portion of a path. Similar to the Unix basename command.
@@ -27,9 +27,9 @@ export const join = async (...paths) => await window
  * @param suffix optionally, an extension to remove from the result.
  * @throws {TypeError} if `path` is not a string or if `ext` is given and is not a string.
  */
-export const basename = async (path) => await window
-  .ipcRenderer
-  .invoke("path-basename", path)
+export const basename = async path => await window
+    .ipcRenderer
+    .invoke('path-basename', path);
 
 /**
  * Return the directory name of a path. Similar to the Unix dirname command.
@@ -37,9 +37,9 @@ export const basename = async (path) => await window
  * @param path the path to evaluate.
  * @throws {TypeError} if `path` is not a string.
  */
-export const dirname = async (path) => await window
-  .ipcRenderer
-  .invoke("path-dirname", path)
+export const dirname = async path => await window
+    .ipcRenderer
+    .invoke('path-dirname', path);
 
 /**
  * The right-most parameter is considered {to}. Other parameters are considered an array of {from}.
@@ -55,8 +55,8 @@ export const dirname = async (path) => await window
  * @throws {TypeError} if any of the arguments is not a string.
  */
 export const resolve = async (...paths) => await window
-  .ipcRenderer
-  .invoke("path-resolve", paths)
+    .ipcRenderer
+    .invoke('path-resolve', paths);
 
 /**
  * Normalize a string path, reducing '..' and '.' parts.
@@ -65,6 +65,6 @@ export const resolve = async (...paths) => await window
  * @param path string path to normalize.
  * @throws {TypeError} if `path` is not a string.
  */
-export const normalize = async (path) => await window
-  .ipcRenderer
-  .invoke("path-normalize", path)
+export const normalize = async path => await window
+    .ipcRenderer
+    .invoke('path-normalize', path);

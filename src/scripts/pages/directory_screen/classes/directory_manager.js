@@ -1,7 +1,6 @@
 import { placeholderImage, print } from '../../../utilities/frontend/handles.js';
 import history from '../../../utilities/frontend/history.js';
 import { basename } from '../../../utilities/frontend/node-path.js';
-import { Toast } from '../components/toast.js';
 
 /**
  * Directory Manager for handling directory contents and rendering.
@@ -49,7 +48,7 @@ export class DirectoryManager {
    * @private
    * @type {string}
    */
-  defaultImage
+  defaultImage;
 
   /**
    * Initializes the DirectoryManager.
@@ -82,7 +81,7 @@ export class DirectoryManager {
     const heightTaken = parseFloat(this.bodyStyle.paddingTop) +
                         parseFloat(title.clientHeight) +
                         parseFloat(this.bodyStyle.gap) +
-                        parseFloat(this.bodyStyle.paddingBottom)
+                        parseFloat(this.bodyStyle.paddingBottom);
 
     this.boxHeight = window.innerHeight - heightTaken;
     this.box.style.height = `${parseInt(this.boxHeight)}px`;
@@ -114,12 +113,12 @@ export class DirectoryManager {
     this.box.dataset.path = path;
 
     basename(path)
-      .then(basename => {
-        const title = document.getElementById("directory-name");
-        const root = basename === '' && path.slice(-1) === '\\';
+        .then(basename => {
+          const title = document.getElementById('directory-name');
+          const root = basename === '' && path.slice(-1) === '\\';
 
-        title.textContent = root ? path.replace('\\', '') : basename
-      })
+          title.textContent = root ? path.replace('\\', '') : basename;
+        });
 
     this.addContent();
   }
@@ -138,7 +137,10 @@ export class DirectoryManager {
     }
 
     // prepares the entries for the directory
-    const entriesLength = await window.ipcRenderer.invoke('prepare-directory-contents', this.box.dataset.path);
+    const entriesLength = await window.ipcRenderer.invoke(
+        'prepare-directory-contents',
+        this.box.dataset.path
+    );
 
     // after all entries are prepared,
     // a loop is used to make sure cards are added one by one,
@@ -159,8 +161,8 @@ export class DirectoryManager {
 
       for (let index = 0; index < batchSize && processed < entriesLength; index++, processed++) {
         batch.push(
-          // index <= this.initialCardCount: include thumbnail for cards in initial card count
-          this.#getNextContent(processed, processed <= this.initialCardCount)
+            // index <= this.initialCardCount: include thumbnail for cards in initial card count
+            this.#getNextContent(processed, processed <= this.initialCardCount)
         );
       }
 
@@ -236,7 +238,10 @@ export class DirectoryManager {
         data-date-created="${dateCreated}"
         data-date-modified="${dateModified}"
         data-date-taken="${dateTaken}">
-        <img id="directory-content-${index}-image" class="directory-cell__image" src="${this.defaultImage}">
+        <img
+          id="directory-content-${index}-image"
+          class="directory-cell__image"
+          src="${this.defaultImage}">
         <p>${title}</p>
       </div>
     `;
@@ -265,9 +270,10 @@ export class DirectoryManager {
     // to resize them into an easier to load image,
     // as currently, using the image file itself as the thumbnail
     // takes too much time to load especially for 4k or HD images.
-    cardImage.classList.add("loaded");
+    cardImage.classList.add('loaded');
+    const thumbnail = await window.ipcRenderer.invoke('get-thumbnail', thumbnailPath);
 
-    cardImage.src = await window.ipcRenderer.invoke('get-thumbnail', thumbnailPath) ?? this.defaultImage;
+    cardImage.src = thumbnail ?? this.defaultImage;
     cardImage.onerror = () => cardImage.src = this.defaultImage;
   }
 
@@ -279,7 +285,7 @@ export class DirectoryManager {
 
     [...this.box.children].forEach(card => {
       // skips card with loaded thumbnail
-      if (card.firstElementChild.classList.contains("loaded") === true) return;
+      if (card.firstElementChild.classList.contains('loaded') === true) return;
 
       // Get card's position relative to viewport
       const cardBound = card.getBoundingClientRect();
@@ -296,11 +302,11 @@ export class DirectoryManager {
    */
   get allMedia() {
     return [...this.box.querySelectorAll('[class*="is-media"]')]
-      .map(element => {
-        return {
-          title: element.dataset.title,
-          path: element.dataset.path
-        }
-      });
+        .map(element => {
+          return {
+            title: element.dataset.title,
+            path: element.dataset.path
+          };
+        });
   }
 }

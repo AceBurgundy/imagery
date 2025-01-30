@@ -1,5 +1,4 @@
 import { MediaViewer } from '../../media_viewer_screen/media-viewer.js';
-import { Navigator } from './navigator.js';
 
 /**
  * Manages keyboard interactions for a directory UI.
@@ -16,7 +15,7 @@ export class KeyboardManager {
    * @param {Navigator} navigator - Handles switching of active card or directory.
    */
   control = (event, box, navigator) => {
-    if (MediaViewer.hiddenOrNone() === false) return;
+    if (MediaViewer.hidden() === false) return;
 
     if (box.children.length === 0 || document.body.lastElementChild.tagName === 'DIALOG') {
       event.preventDefault();

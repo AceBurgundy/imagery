@@ -6,12 +6,12 @@
  * - Else all other types are simply logged by their toString() value
  */
 export const print = (...message) => window.ipcRenderer.invoke('print',
-  message.map(message => typeof message === "object"
-    ? JSON.stringify(message, null, 2)
-    : Array.isArray(message)
-      ? message.join(', ')
-      : message.toString()
-  )
+    message.map(message => typeof message === 'object' ?
+    JSON.stringify(message, null, 2) :
+    Array.isArray(message) ?
+      message.join(', ') :
+      message.toString()
+    )
 );
 
 /**
@@ -19,6 +19,6 @@ export const print = (...message) => window.ipcRenderer.invoke('print',
  * @returns {Promise<string>} A promise that resolves to the placeholder image path.
  */
 export const placeholderImage = async () => await window
-  .ipcRenderer
-  .invoke('default-image');
+    .ipcRenderer
+    .invoke('default-image');
 

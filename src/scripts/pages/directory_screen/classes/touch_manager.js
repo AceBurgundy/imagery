@@ -1,5 +1,4 @@
 import { MediaViewer } from '../../media_viewer_screen/media-viewer.js';
-import { DirectoryManager } from './directory_manager.js';
 
 /**
  * Manages touch interactions for dynamic content loading.
@@ -15,7 +14,7 @@ export class TouchManager {
    * @param {DirectoryManager} manager - The directory manager for handling directory operations.
    */
   control(event, manager) {
-    if (MediaViewer.hiddenOrNone() === false) return;
+    if (MediaViewer.hidden() === false) return;
 
     const scrollingUp = event.touches[0].clientY < event.touches[0].previousY;
     const scrollingDown = !scrollingUp;

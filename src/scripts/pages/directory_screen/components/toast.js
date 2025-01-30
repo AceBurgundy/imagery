@@ -1,12 +1,11 @@
 import { Component } from '../../../../../component.js';
 
 export class Toast extends Component {
-
   constructor() {
     super();
 
-    this.template = /*html*/`
-      <div id="${"toasts"}"></div>
+    this.template = /* html*/`
+      <div id="${'toasts'}"></div>
     `;
   }
 
@@ -16,18 +15,18 @@ export class Toast extends Component {
    * @return {void}
   */
   static broadcast(message, duration) {
-    const toasts = document.getElementById("toasts");
+    const toasts = document.getElementById('toasts');
 
     if (!toasts) {
-      throw new Error(`Missing toast container element`)
+      throw new Error(`Missing toast container element`);
     }
 
     if (!message) {
       throw new Error(`Cannot call toast without a message`);
     }
 
-    if (duration && typeof duration !== number) {
-      throw new Error("Duration for a toast must be a number");
+    if (duration && typeof duration !== 'number') {
+      throw new Error('Duration for a toast must be a number');
     }
 
     if (typeof message !== 'string') {

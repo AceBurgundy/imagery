@@ -1,7 +1,5 @@
 import history from '../../../utilities/frontend/history.js';
 import { MediaViewer } from '../../media_viewer_screen/media-viewer.js';
-import { DirectoryManager } from './directory_manager.js';
-import { Navigator } from './navigator.js';
 
 /**
  * Manages mouse click interactions for dynamic content loading.
@@ -18,17 +16,17 @@ export class ClickManager {
    * @param {Navigator} navigator - An instance of Navigator.
    */
   control(event, navigator, manager) {
-    if (MediaViewer.hiddenOrNone() === false) return;
+    if (MediaViewer.hidden() === false) return;
 
     const card = event.target.closest('.directory-cell');
     if (!card) return;
 
     MediaViewer.open(card, manager.allMedia)
-      .catch(_ => {
+        .catch(_ => {
         // open as folder
-        navigator.reset();
-        history.visit(card.dataset.path);
-        manager.open(card.dataset.path);
-      });
+          navigator.reset();
+          history.visit(card.dataset.path);
+          manager.open(card.dataset.path);
+        });
   }
 }

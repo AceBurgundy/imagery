@@ -7,7 +7,8 @@ import { Navigator } from './classes/navigator.js';
 
 import history from '../../utilities/frontend/history.js';
 import { Component, css } from '../../../../component.js';
-import { Toast } from "./components/toast.js";
+import { Toast } from './components/toast.js';
+import { MediaViewer } from '../media_viewer_screen/media-viewer.js';
 
 /**
  * DirectoryScreen Component
@@ -19,13 +20,13 @@ export class DirectoryScreen extends Component {
 
     // Load styles
     css(import.meta, [
-      "./styles/directory-contents.css",
-      "./styles/directory-cell.css"
+      './styles/directory-contents.css',
+      './styles/directory-cell.css'
     ]);
 
     /** Initialize scripts */
     this.scripts = async () => {
-      const box = document.getElementById("directory-contents");
+      const box = document.getElementById('directory-contents');
 
       const manager = new DirectoryManager(box);
       const navigator = new Navigator(manager, box);
@@ -35,34 +36,35 @@ export class DirectoryScreen extends Component {
       const wheel = new MouseWheelManager();
       const touchpad = new TouchManager();
 
-      window.addEventListener("resize", async () =>
+      window.addEventListener('resize', async () =>
         manager.updateBox(box)
       );
 
-      window.addEventListener("click", event =>
+      window.addEventListener('click', event =>
         click.control(event, navigator, manager)
       );
 
-      window.addEventListener("wheel", event => {
-        wheel.control(event, manager)
+      window.addEventListener('wheel', event => {
+        wheel.control(event, manager);
       }, { passive: true });
 
-      window.addEventListener("keydown", event =>
+      window.addEventListener('keydown', event =>
         keyboard.control(event, box, navigator)
       );
 
-      window.addEventListener("touchmove", event =>
+      window.addEventListener('touchmove', event =>
         touchpad.control(event, manager)
       );
 
-      manager.open(history.currentPath)
+      manager.open(history.currentPath);
     };
 
     // Set HTML template
-    this.template = /*html*/`
+    this.template = /* html */`
       ${ new Toast() }
-      <p id="directory-name"></p>
-      <div id="directory-contents"></div>
+      <p id='directory-name'></p>
+      <div id='directory-contents'></div>
+      ${ new MediaViewer() }
     `;
   }
 }

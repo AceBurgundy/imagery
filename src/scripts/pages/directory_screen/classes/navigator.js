@@ -1,8 +1,6 @@
 import { MediaViewer } from '../../media_viewer_screen/media-viewer.js';
 import history from '../../../utilities/frontend/history.js';
-import { DirectoryManager } from './directory_manager.js';
 import { Toast } from '../components/toast.js';
-import { print } from '../../../utilities/frontend/handles.js';
 
 export class Navigator {
   /**
@@ -55,7 +53,7 @@ export class Navigator {
     const activeCard = this.box.children[this.activeCardIndex];
 
     // No more active card
-    if (!activeCard) return
+    if (!activeCard) return;
 
     activeCard.classList.add('active');
 
@@ -66,16 +64,17 @@ export class Navigator {
     // Check if the card is out of view above
     if (cardRectangle.top < boxRectangle.top) {
       this.box.scrollBy({ top: cardRectangle.top - boxRectangle.top, behavior: 'smooth' });
+      return;
     }
 
     // Check if the card is out of view below
-    else if (cardRectangle.bottom > boxRectangle.bottom) {
+    if (cardRectangle.bottom > boxRectangle.bottom) {
       const bodyPaddingBottom = Math.floor(
-        parseFloat(this.manager.bodyStyle.paddingBottom)
+          parseFloat(this.manager.bodyStyle.paddingBottom)
       );
 
       const bodyGap = Math.floor(
-        parseFloat(this.manager.bodyStyle.gap)
+          parseFloat(this.manager.bodyStyle.gap)
       );
 
       const cardTop = cardRectangle.bottom + bodyPaddingBottom + bodyGap;
@@ -88,16 +87,16 @@ export class Navigator {
    * Handles navigation between directories using keyboard events.
    * @param {KeyboardEvent} event - The keyboard event triggering navigation.
    */
-  navigateDirectory = (event) => {
+  navigateDirectory = event => {
     if (event.key === 'ArrowLeft') {
       const previousDirectory = history.previous();
 
       if (!previousDirectory) {
-        Toast.broadcast("You're currently at the first folder");
+        Toast.broadcast('You\'re currently at the first folder');
         return;
       }
 
-      this.reset()
+      this.reset();
       this.manager.open(previousDirectory);
       return;
     }
@@ -110,7 +109,7 @@ export class Navigator {
         return;
       }
 
-      this.reset()
+      this.reset();
       this.manager.open(nextDirectory);
     }
   };
@@ -126,15 +125,15 @@ export class Navigator {
       // card is missing
       if (!card) return;
 
-      if (card.classList.contains("is-folder") === true) {
-        this.reset()
+      if (card.classList.contains('is-folder') === true) {
+        this.reset();
 
         // Open next directory
         await this.manager.open(card.dataset.path, true);
         return;
       }
 
-      if (card.classList.contains("is-media") === true) {
+      if (card.classList.contains('is-media') === true) {
         await MediaViewer.open(card, this.manager.allMedia);
       }
     }

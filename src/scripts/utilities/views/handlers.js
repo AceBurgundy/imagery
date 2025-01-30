@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 const { extname, join, basename, dirname, resolve, normalize } = require('path');
 const { ipcMain, BrowserWindow } = require('electron');
 const { defaultThumbnailPath, getThumbnail } = require('./helpers.js');

@@ -1,4 +1,5 @@
-/* eslint-disable linebreak-style */
+/* eslint-disable no-undef */
+
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { join, resolve } = require('path');
 const { existsSync } = require('fs');
@@ -23,12 +24,11 @@ switch (process.platform) {
 }
 
 const createWindow = () => {
-
   const window = new BrowserWindow({
     webPreferences: {
       nodeIntegration: true,
       preload: join(__dirname, 'preload.js'),
-      devTools: true,
+      devTools: true
     },
     minHeight: 540,
     minWidth: 720,
@@ -37,7 +37,7 @@ const createWindow = () => {
     enableBlinkFeatures: 'Autofill',
     autoHideMenuBar: true,
     icon,
-    show: false,
+    show: false
   });
 
   window.loadFile(join(__dirname, 'index.html'));
@@ -56,6 +56,10 @@ const createWindow = () => {
     if (preventReload) {
       event.preventDefault();
     }
+
+    if (preventInspect) {
+      // event.preventDefault();
+    }
   });
 
   window.on('resize', () =>
@@ -64,7 +68,7 @@ const createWindow = () => {
 
   ipcMain.handle('window-bounds', () =>
     [window.getBounds().width, window.getBounds().height]
-  )
+  );
 };
 
 app.on('ready', () => {
@@ -94,7 +98,7 @@ app.on('activate', () => {
 });
 
 // Handle uncaught exceptions in the main process
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   console.log(error.stack);
   logError(`Uncaught Exception: ${error}`);
   app.quit();

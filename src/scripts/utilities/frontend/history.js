@@ -1,5 +1,4 @@
-import { print } from './handles.js';
-
+/* eslint-disable no-undefined */
 class History {
   #currentIndex;
 
