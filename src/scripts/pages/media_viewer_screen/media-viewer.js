@@ -47,11 +47,6 @@ export class MediaViewer extends Component {
       /**
        * @type {boolean}
        */
-      let isPlaying = false;
-
-      /**
-       * @type {boolean}
-       */
       let isVideo = false;
 
       /**
@@ -79,10 +74,6 @@ export class MediaViewer extends Component {
       const RIGHT_KEY = 'ArrowRight';
       const SEEK_TIME = 5;
 
-      // If this is the first time the modal has opened
-      let startup = true;
-
-      viewer.focus();
       window.ipcRenderer.invoke("on-fullscreen");
       video.disablePictureInPicture = false;
 
@@ -129,59 +120,86 @@ export class MediaViewer extends Component {
       }
 
       /**
-       * Update and show the player for the media to be displayed
-       * @param {{ title: String, path: String }} media - The media to be shown
+       * Update and display the media player.
+       * @param {{ title: string, path: string }} media - The media to be displayed.
        */
       async function updateViewer(media) {
-        if (exist() === false) return;
+        if (!exist()) return;
 
-        // checks if the file to open is a video
-        isVideo = [
-          '.mp4', '.mkv', '.avi',
-          '.mov', '.flv', '.wmv',
-          '.webm', '.ts'
-        ].includes(
-          await extname(media.title)
-        );
+        const extension = await extname(media.title);
+        isVideo = isVideoFile(extension);
 
-        // Show and hide title for a brief moment
-        title.textContent = media.title;
-        title.classList.remove("hide");
-
-        setTimeout(() => {
-          title.classList.add("hide");
-        }, 2000);
-
-        viewer.dataset.type = isVideo ? "video" : "image";
+        updateTitle(media.title);
+        updateViewerType(isVideo);
 
         if (isVideo) {
-          video.src = media.path;
-          image.src = '';
-
-          // Auto play video that was clicked
-          if (startup) {
-            video.play();
-            startup = false;
-          }
-
-          print(`is playing: ${isPlaying}`)
-          if (isPlaying) video.play();
-
-          video.onerror = error => {
-            const message = evaluateVideoError(error);
-            if (message) Toast.broadcast(message);
-          };
-
+            setupVideo(media.path);
         } else {
-          image.src = media.path;
-          video.src = '';
-
-          image.onerror = async () => image.src = await placeholderImage();
+            setupImage(media.path);
         }
+      }
 
-        video.style.display = isVideo ? 'block' : 'none';
-        image.style.display = isVideo ? 'none' : 'block';
-        return;
+      /**
+      * Check if the file is a video based on its extension.
+      * @param {string} extension - File extension.
+      * @returns {boolean} - True if the file is a video.
+      */
+      function isVideoFile(extension) {
+        return ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.webm', '.ts'].includes(extension);
+      }
+
+      /**
+      * Show and hide the media title temporarily.
+      * @param {string} titleText - The media title.
+      */
+      function updateTitle(titleText) {
+        title.textContent = titleText;
+        title.classList.remove("hide");
+        setTimeout(() => title.classList.add("hide"), 2000);
+      }
+
+      /**
+      * Update viewer dataset and toggle visibility of video/image elements.
+      * @param {boolean} isVideo - Whether the media is a video.
+      */
+      function updateViewerType(isVideo) {
+        viewer.dataset.type = isVideo ? "video" : "image";
+        video.style.display = isVideo ? "block" : "none";
+        image.style.display = isVideo ? "none" : "block";
+      }
+
+      /**
+      * Configure video player settings.
+      * @param {string} path - Video file path.
+      */
+      function setupVideo(path) {
+        video.src = path;
+        image.src = "";
+
+        video.focus();
+        video.onerror = error => handleVideoError(error);
+      }
+
+      /**
+      * Handle video loading errors.
+      * @param {Event} error - Error event from the video element.
+      */
+      function handleVideoError(error) {
+        const message = evaluateVideoError(error);
+        if (message) Toast.broadcast(message);
+      }
+
+      /**
+      * Configure image settings.
+      * @param {string} path - Image file path.
+      */
+      function setupImage(path) {
+        image.src = path;
+        video.src = "";
+
+        image.onerror = async () => {
+          image.src = await placeholderImage();
+        };
       }
 
       video.onenterpictureinpicture = _ => {
@@ -204,7 +222,7 @@ export class MediaViewer extends Component {
       await updateViewer(firstMedia);
       let timeout;
 
-      video.onpause = () => isPlaying = false;
+      video.onpause = () => video.autoplay = false;
 
       window.addEventListener("mousemove", event => {
         if (exist() === false) return;
@@ -217,74 +235,69 @@ export class MediaViewer extends Component {
         , 2000);
       });
 
+      let fired = false;
+
+      window.addEventListener("keyup", _ => fired = false);
+
       window.addEventListener("keydown", event => {
         if (event.repeat) return;
 
-        // Since there is now multiple keydown events delegation,
-        // we have to make sure all code here will not work if viewer
-        // does not exist
-        if (exist() === false) return;
+        if (!fired) {
+          fired = true;
 
-        if (event.key === ESCAPE_KEY) {
-          window.ipcRenderer.invoke('off-fullscreen');
+          // Since there is now multiple keydown events delegation,
+          // we have to make sure all code here will not work if viewer
+          // does not exist
+          if (exist() === false) return;
 
-          setTimeout(() => hide(), 100);
-          setTimeout(() => viewer.remove(), 200);
-          return;
-        }
+          if (event.key === ESCAPE_KEY) {
+            window.ipcRenderer.invoke('off-fullscreen');
 
-        if (isVideo && !isPlaying && event.key === ' ') {
-          video.play();
-          isPlaying = true;
-          return;
-        }
-
-        // Change video seeking to shift, then arrow keys
-        if (isVideo && isPlaying) {
-
-          if (event.key === ' ') {
-            isPlaying = false;
-            video.pause();
+            setTimeout(() => hide(), 200);
+            setTimeout(() => viewer.remove(), 300);
             return;
           }
 
-          if (event.shiftKey) {
+          if (!isVideo) {
+            // For image navigation
             if (event.key === LEFT_KEY) {
-              video.currentTime = Math.max(0, video.currentTime - SEEK_TIME);
-              return;
+              index = (index - 1 + medias.length) % medias.length;
+              updateViewer(medias[index]);
             }
 
-            if (event.key === RIGHT_KEY) {
-              video.currentTime = Math.min(video.duration, video.currentTime + SEEK_TIME);
-              return;
+            else if (event.key === RIGHT_KEY) {
+              index = (index + 1) % medias.length;
+              updateViewer(medias[index]);
+            }
+
+            return;
+          }
+
+          // Other events below must require the control key being held
+          if (event.ctrlKey && (event.key === LEFT_KEY || event.key === RIGHT_KEY) === true) {
+            print("down")
+            // Previous video
+            if (event.key === LEFT_KEY) {
+              // pause current video
+              video.pause();
+
+              // will autoplay next video
+              video.autoplay = true;
+              index = (index - 1 + medias.length) % medias.length;
+              updateViewer(medias[index]);
+            }
+
+            // Next video
+            else if (event.key === RIGHT_KEY) {
+              print("right")
+              video.pause();
+              video.autoplay = true;
+
+              index = (index + 1) % medias.length;
+              updateViewer(medias[index]);
             }
           }
         }
-
-        if (event.key === LEFT_KEY) {
-          if (isVideo) {
-            // pause current video
-            video.pause();
-
-            // will autoplay next video
-            isPlaying = true;
-          }
-
-          index = (index - 1 + medias.length) % medias.length;
-          updateViewer(medias[index]);
-        }
-
-        else if (event.key === RIGHT_KEY) {
-          if (isVideo) {
-            video.pause();
-
-            isPlaying = true;
-          }
-
-          index = (index + 1) % medias.length;
-          updateViewer(medias[index]);
-        }
-
       });
 
       /**
@@ -304,7 +317,7 @@ export class MediaViewer extends Component {
 
     this.template = /*html*/`
       <div id="media-viewer" open>
-        <video controls style="display: none;"></video>
+        <video autoplay controls style="display: none;"></video>
         <img style="display: none;" />
         <p id="media-viewer-title" class="hide"></p>
       </div>

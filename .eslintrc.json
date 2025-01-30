@@ -1,13 +1,32 @@
 {
-    "extends": "google",
-    "parserOptions": {
-        "ecmaVersion": "latest",
-        "sourceType": "module"
-   },
-    "rules": {
-        "linebreak-style": ["error", "windows"],
-        "max-len": ["error", { "code": 100, "tabWidth": 4, "comments": 200 }],
-        "arrow-parens": ["error", "as-needed"],
-        "comma-dangle": ["error", "never"]
-   }
+  "ignorePatterns": ["node_modules/"],
+  "overrides": [
+    {
+      "files": ["**/*.mjs", "**/*.js"],
+      "extends": ["google", "eslint:recommended"],
+      "env": {
+        "node": true,
+        "browser": false
+      }
+    },
+    {
+      "files": ["src/renderer/**/*.js", "src/renderer/**/*.mjs"],
+      "extends": ["google", "eslint:recommended"],
+      "env": {
+        "browser": true,
+        "node": false
+      }
+    }
+  ],
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "rules": {
+    "linebreak-style": ["error", "windows"],
+    "max-len": ["error", { "code": 100, "tabWidth": 2, "comments": 200 }],
+    "arrow-parens": ["error", "as-needed"],
+    "comma-dangle": ["error", "never"],
+    "valid-jsdoc": "off"
+  }
 }
